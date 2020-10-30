@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     
     <Product>Composed</Product>
-    <Version>0.1.1</Version>
+    <Version>0.1.2</Version>
     <Authors>Manuel Römer</Authors>
     <NeutralLanguage>en</NeutralLanguage>
     <RepositoryType>git</RepositoryType>
@@ -13,8 +13,7 @@
     <PackageReleaseNotes>https://github.com/manuelroemer/Composed/blob/dev/CHANGELOG.md</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
     <IsPackable>false</IsPackable>
     
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
