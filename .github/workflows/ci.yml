@@ -48,6 +48,6 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: Packages
-        path: ./src/**/*.*nupkg
+        path: ./src/**/*.nupkg
     - name: Push
       run: dotnet nuget push **/*.nupkg --source $NUGET_FEED --skip-duplicate --api-key $NUGET_KEY
