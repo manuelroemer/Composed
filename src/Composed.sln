@@ -7,6 +7,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".Config", ".Config", "{1B6B
 	ProjectSection(SolutionItems) = preProject
 		..\.editorconfig = ..\.editorconfig
 		..\.gitignore = ..\.gitignore
+		..\CHANGELOG.md = ..\CHANGELOG.md
 		Default.ruleset = Default.ruleset
 		Directory.Build.props = Directory.Build.props
 		global.json = global.json
@@ -25,7 +26,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Composed.Commands", "Compos
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Composed.Commands", "Composed.Commands\Composed.Commands.csproj", "{8726FD18-90F5-40B6-A32B-F14D18A1E2E3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Composed.Commands.Tests", "Composed.Commands.Tests\Composed.Commands.Tests.csproj", "{259AD353-7C1C-4447-910D-799B2BC55286}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Composed.Commands.Tests", "Composed.Commands.Tests\Composed.Commands.Tests.csproj", "{259AD353-7C1C-4447-910D-799B2BC55286}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

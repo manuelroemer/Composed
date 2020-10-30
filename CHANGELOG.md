@@ -1,5 +1,19 @@
 # Composed Changelog
 
+## v0.1.3
+
+### Composed
+
+* Publish a deterministic NuGet package.
+* Include all files relevant for Source Link in the `.pdb`.
+
+## Composed.Commands
+
+* Publish a deterministic NuGet package.
+* Include all files relevant for Source Link in the `.pdb`.
+
+
+
 ## v0.1.2
 
 ### Composed
