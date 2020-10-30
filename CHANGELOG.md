@@ -1,5 +1,17 @@
 # Composed Changelog
 
+## v0.1.4
+
+### Composed
+
+* Revert to publishing `.snupkg` files.
+
+## Composed.Commands
+
+* Revert to publishing `.snupkg` files.
+
+
+
 ## v0.1.3
 
 ### Composed
