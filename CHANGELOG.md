@@ -1,5 +1,17 @@
 # Composed Changelog
 
+## v0.1.5
+
+### Composed
+
+* Added a `DebuggerTypeProxy` to any ref created by Composed.
+
+## Composed.Commands
+
+_No changes._
+
+
+
 ## v0.1.4
 
 ### Composed
