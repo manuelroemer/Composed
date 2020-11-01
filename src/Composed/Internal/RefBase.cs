@@ -9,6 +9,7 @@ namespace Composed.Internal
     using System.Reactive.Subjects;
 
 #pragma warning disable CA1001 // Types that own disposable fields should be disposable
+    [DebuggerDisplay("Ref({Value})")]
     [DebuggerTypeProxy(typeof(RefBase<>.DebugView))]
     internal abstract class RefBase<T> : IRef<T>
 #pragma warning restore CA1001
@@ -60,7 +61,7 @@ namespace Composed.Internal
         {
             private readonly RefBase<T> _ref;
 
-            public T Value => _ref._value;
+            public T Value => _ref.Value;
 
             public DebugView(RefBase<T> @ref)
             {
