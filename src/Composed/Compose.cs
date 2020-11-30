@@ -170,7 +170,7 @@ namespace Composed
         ///     </para>
         /// </param>
         /// <returns>
-        ///     A new mutable <see cref="IReadOnlyRef{T}"/> instance which initially holds the value returned
+        ///     A new <see cref="IReadOnlyRef{T}"/> instance which initially holds the value returned
         ///     by the <paramref name="compute"/> function and recomputes that value whenever a dependency
         ///     in the specified <paramref name="dependencies"/> array changes.
         /// </returns>
@@ -252,7 +252,7 @@ namespace Composed
         ///     </para>
         /// </param>
         /// <returns>
-        ///     A new mutable <see cref="IReadOnlyRef{T}"/> instance which initially holds the value returned
+        ///     A new <see cref="IReadOnlyRef{T}"/> instance which initially holds the value returned
         ///     by the <paramref name="compute"/> function and recomputes that value whenever a dependency
         ///     in the specified <paramref name="dependencies"/> array changes.
         /// </returns>
