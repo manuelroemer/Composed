@@ -2,9 +2,7 @@ namespace Composed.Commands
 {
     using System;
     using System.Reactive;
-    using System.Windows.Input;
-    using Composed.Commands.Internal;
-    using static Composed.Compose;
+    using System.Reactive.Concurrency;
 
     /// <summary>
     ///     <para>
@@ -17,119 +15,136 @@ namespace Composed.Commands
     /// </summary>
     public static class Compose
     {
-        /// <inheritdoc cref="UseCommand{TParameter}(ExecuteAction{TParameter})"/>
-        public static IComposedCommand<object?> UseCommand(ExecuteAction execute)
-        {
-            _ = execute ?? throw new ArgumentNullException(nameof(execute));
-            return new ComposedCommand<object?>(execute);
-        }
+        private static readonly CanExecuteFunc CanAlwaysExecute = () => true;
 
         /// <summary>
-        ///     Creates and returns a new <see cref="IComposedCommand{TParameter}"/> instance
-        ///     which forwards its <c>Execute</c> method calls to the specified <paramref name="execute"/>
-        ///     function.
-        ///     This command can always be executed without restrictions.
+        ///     Creates and returns a new <see cref="ComposedCommand"/> instance which can always
+        ///     be executed and, when executed, invokes the specified <paramref name="execute"/> function.
         /// </summary>
-        /// <typeparam name="TParameter">
-        ///     The type of an optional parameter which may be passed to the command.
-        /// </typeparam>
         /// <param name="execute">
-        ///     A function which is invoked when the command is executed.
+        ///     The function to be invoked when the command is executed.
         /// </param>
         /// <returns>
-        ///     A new <see cref="IComposedCommand{TParameter}"/> instance which forwards its <c>Execute</c> method
-        ///     calls to the specified <paramref name="execute"/> function.
+        ///     A new <see cref="ComposedCommand"/> instance which can always
+        ///     be executed and, when executed, invokes the specified <paramref name="execute"/> function.
         /// </returns>
         /// <exception cref="ArgumentNullException">
         ///     <paramref name="execute"/> is <see langword="null"/>.
         /// </exception>
-        public static IComposedCommand<TParameter> UseCommand<TParameter>(ExecuteAction<TParameter> execute)
+        public static ComposedCommand UseCommand(ExecuteAction execute)
         {
-            _ = execute ?? throw new ArgumentNullException(nameof(execute));
-            return new ComposedCommand<TParameter>(execute);
+            return UseCommand(execute, CanAlwaysExecute, scheduler: null, Array.Empty<IObservable<Unit>>());
         }
 
-        /// <inheritdoc cref="UseCommand{TParameter}(ExecuteAction{TParameter}, CanExecuteFunc{TParameter}, IObservable{Unit}[])"/>
-        public static IComposedCommand<object?> UseCommand(
+        /// <summary>
+        ///     <para>
+        ///         Creates and returns a new <see cref="ComposedCommand"/> instance which invokes the
+        ///         specified <paramref name="execute"/> function when it's executed and which
+        ///         uses the specified <paramref name="canExecute"/> function and <paramref name="dependencies"/>
+        ///         for determining when it can be executed.
+        ///     </para>
+        ///     <para>
+        ///         Scheduling of <paramref name="canExecute"/> invocations and any subsequent notifications
+        ///         depends on the observables passed as <paramref name="dependencies"/>.
+        ///     </para>
+        /// </summary>
+        /// <param name="execute">
+        ///     The function to be invoked when the command is executed.
+        /// </param>
+        /// <param name="canExecute">
+        ///     A function which returns a boolean value indicating whether a command can be
+        ///     executed in its current state.
+        /// </param>
+        /// <param name="dependencies">
+        ///     <para>
+        ///         A set of <paramref name="canExecute"/> dependencies which will be watched for changes.
+        ///         This can be any kind of observable. <see cref="IRef{T}"/> and <see cref="IReadOnlyRef{T}"/> instances
+        ///         implement <see cref="IObservable{T}"/> and can directly be passed as dependencies.
+        ///     </para>
+        ///     <para>
+        ///         If this is empty, <paramref name="canExecute"/> will never change.
+        ///     </para>
+        /// </param>
+        /// <returns>
+        ///     A new <see cref="ComposedCommand"/> instance which invokes the specified <paramref name="execute"/>
+        ///     function when it's executed and which uses the specified <paramref name="canExecute"/> function and
+        ///     <paramref name="dependencies"/> for determining when it can be executed.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="execute"/>, <paramref name="canExecute"/>, <paramref name="dependencies"/>
+        ///     or one of the dependencies in the <paramref name="dependencies"/> array is <see langword="null"/>.
+        /// </exception>
+        public static ComposedCommand UseCommand(
             ExecuteAction execute,
             CanExecuteFunc canExecute,
             params IObservable<Unit>[] dependencies
         )
         {
-            _ = execute ?? throw new ArgumentNullException(nameof(execute));
-            _ = canExecute ?? throw new ArgumentNullException(nameof(canExecute));
-            var command = new ComposedCommand<object?>(execute, canExecute);
-            Watch(() => command.RaiseCanExecuteChanged(), dependencies);
-            return command;
+            return UseCommand(execute, canExecute, scheduler: null, dependencies);
         }
 
         /// <summary>
-        ///     Creates and returns a new <see cref="IComposedCommand{TParameter}"/> instance
-        ///     which forwards its method calls to the specified <paramref name="execute"/> and
-        ///     <paramref name="canExecute"/> functions.
-        ///     The command watches each dependency in the <paramref name="dependencies"/>
-        ///     array for changes and raises the <see cref="ICommand.CanExecuteChanged"/> event whenever
-        ///     such a change occurs.
+        ///     <para>
+        ///         Creates and returns a new <see cref="ComposedCommand"/> instance which invokes the
+        ///         specified <paramref name="execute"/> function when it's executed and which
+        ///         uses the specified <paramref name="canExecute"/> function and <paramref name="dependencies"/>
+        ///         for determining when it can be executed.
+        ///     </para>
+        ///     <para>
+        ///         This overload allows you to specify an <see cref="IScheduler"/>
+        ///         which is used for scheduling <paramref name="canExecute"/> invocations and any subsequent
+        ///         notifications.
+        ///     </para>
         /// </summary>
-        /// <typeparam name="TParameter">
-        ///     The type of an optional parameter which may be passed to the command.
-        /// </typeparam>
         /// <param name="execute">
-        ///     A function which is invoked when the command is executed.
+        ///     The function to be invoked when the command is executed.
         /// </param>
         /// <param name="canExecute">
-        ///     A function which returns a boolean value indicating whether a command can be executed in
-        ///     its current state.
+        ///     A function which returns a boolean value indicating whether a command can be
+        ///     executed in its current state.
+        /// </param>
+        /// <param name="scheduler">
+        ///     <para>
+        ///         An <see cref="IScheduler"/> on which the <paramref name="canExecute"/> invocations and
+        ///         any subsequent notifications are scheduled.<br/>
+        ///         <b>Important: </b> The initial invocation of <paramref name="canExecute"/> is always run immediately
+        ///         on the calling thread and <i>is not</i> scheduled on this scheduler.
+        ///     </para>
+        ///     <para>
+        ///         If this is <see langword="null"/>, scheduling of <paramref name="canExecute"/> invocations
+        ///         depends on the observables passed as <paramref name="dependencies"/>.
+        ///     </para>
         /// </param>
         /// <param name="dependencies">
         ///     <para>
-        ///         A set of dependencies which will be watched for changes.
+        ///         A set of <paramref name="canExecute"/> dependencies which will be watched for changes.
+        ///         This can be any kind of observable. <see cref="IRef{T}"/> and <see cref="IReadOnlyRef{T}"/> instances
+        ///         implement <see cref="IObservable{T}"/> and can directly be passed as dependencies.
         ///     </para>
         ///     <para>
-        ///         If this is empty, the command's <see cref="ICommand.CanExecuteChanged"/> event
-        ///         will never be raised.
+        ///         If this is empty, <paramref name="canExecute"/> will never change.
         ///     </para>
         /// </param>
         /// <returns>
-        ///     A new <see cref="IComposedCommand{TParameter}"/> instance which forwards its method
-        ///     calls to the specified <paramref name="execute"/> and <paramref name="canExecute"/> functions.
+        ///     A new <see cref="ComposedCommand"/> instance which invokes the specified <paramref name="execute"/>
+        ///     function when it's executed and which uses the specified <paramref name="canExecute"/> function and
+        ///     <paramref name="dependencies"/> for determining when it can be executed.
         /// </returns>
-        /// <remarks>
-        ///     The returned command has the following behaviors:
-        ///
-        ///     <list type="bullet">
-        ///         <item>
-        ///             <description>
-        ///                 The <paramref name="dependencies"/> are watched using the
-        ///                 <see cref="Watch(Action, IObservable{Unit}[])"/> function.
-        ///                 All dependency specific behaviors documented in <see cref="Watch(Action, IObservable{Unit}[])"/>
-        ///                 also apply to this function.
-        ///             </description>
-        ///         </item>
-        ///         <item>
-        ///             <description>
-        ///                 The <c>Execute</c> overloads invoke <paramref name="canExecute"/>
-        ///                 before <paramref name="execute"/> and throw an <see cref="InvalidOperationException"/>
-        ///                 if <paramref name="canExecute"/> returns <see langword="false"/>.
-        ///             </description>
-        ///         </item>
-        ///     </list>
-        /// </remarks>
         /// <exception cref="ArgumentNullException">
         ///     <paramref name="execute"/>, <paramref name="canExecute"/>, <paramref name="dependencies"/>
         ///     or one of the dependencies in the <paramref name="dependencies"/> array is <see langword="null"/>.
         /// </exception>
-        public static IComposedCommand<TParameter> UseCommand<TParameter>(
-            ExecuteAction<TParameter> execute,
-            CanExecuteFunc<TParameter> canExecute,
+        public static ComposedCommand UseCommand(
+            ExecuteAction execute,
+            CanExecuteFunc canExecute,
+            IScheduler? scheduler,
             params IObservable<Unit>[] dependencies
         )
         {
             _ = execute ?? throw new ArgumentNullException(nameof(execute));
             _ = canExecute ?? throw new ArgumentNullException(nameof(canExecute));
-            var command = new ComposedCommand<TParameter>(execute, canExecute);
-            Watch(() => command.RaiseCanExecuteChanged(), dependencies);
-            return command;
+            // dependencies is ANE validated in ComposedCommand's constructor via the Watch call.
+            return new ComposedCommand(execute, canExecute, scheduler, dependencies);
         }
     }
 }

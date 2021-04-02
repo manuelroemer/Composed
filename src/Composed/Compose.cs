@@ -134,7 +134,7 @@ namespace Composed
         ///         implement <see cref="IObservable{T}"/> and can directly be passed as dependencies.
         ///     </para>
         ///     <para>
-        ///         If this is empty, ref's value will never be recomputed.
+        ///         If this is empty, the ref's value will never be recomputed.
         ///     </para>
         /// </param>
         /// <returns>
@@ -203,7 +203,7 @@ namespace Composed
         ///         implement <see cref="IObservable{T}"/> and can directly be passed as dependencies.
         ///     </para>
         ///     <para>
-        ///         If this is empty, ref's value will never be recomputed.
+        ///         If this is empty, the ref's value will never be recomputed.
         ///     </para>
         /// </param>
         /// <returns>
@@ -281,7 +281,7 @@ namespace Composed
         ///         implement <see cref="IObservable{T}"/> and can directly be passed as dependencies.
         ///     </para>
         ///     <para>
-        ///         If this is empty, ref's value will never be recomputed.
+        ///         If this is empty, the ref's value will never be recomputed.
         ///     </para>
         /// </param>
         /// <returns>
@@ -369,7 +369,7 @@ namespace Composed
         ///         implement <see cref="IObservable{T}"/> and can directly be passed as dependencies.
         ///     </para>
         ///     <para>
-        ///         If this is empty, ref's value will never be recomputed.
+        ///         If this is empty, the ref's value will never be recomputed.
         ///     </para>
         /// </param>
         /// <returns>

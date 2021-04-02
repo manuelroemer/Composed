@@ -17,6 +17,10 @@
 ### Composed.Commands
 
 * Integrated the changes from the "Composed" package (removed `IDependency` references, provide scheduler, etc.).
+* Removed any `IComposedCommand` interfaces.
+* Removed any command related members with support for a generic `TParameter`.
+* Added the non-generic `ComposedCommand` class which replaces the interfaces.
+* Updated the `UseCommand` hooks to return `ComposedCommand` instances.
 
 ### Composed.State
 
@@ -30,7 +34,7 @@ Initial release.
 
 * Added a `DebuggerTypeProxy` to any ref created by Composed.
 
-## Composed.Commands
+### Composed.Commands
 
 _No changes._
 
@@ -42,7 +46,7 @@ _No changes._
 
 * Revert to publishing `.snupkg` files.
 
-## Composed.Commands
+### Composed.Commands
 
 * Revert to publishing `.snupkg` files.
 
@@ -55,7 +59,7 @@ _No changes._
 * Publish a deterministic NuGet package.
 * Include all files relevant for Source Link in the `.pdb`.
 
-## Composed.Commands
+### Composed.Commands
 
 * Publish a deterministic NuGet package.
 * Include all files relevant for Source Link in the `.pdb`.
@@ -68,7 +72,7 @@ _No changes._
 
 * `.pdb` files are now published within the `nupkg`.
 
-## Composed.Commands
+### Composed.Commands
 
 * `.pdb` files are now published within the `nupkg`.
 
@@ -80,7 +84,7 @@ _No changes._
 
 _No changes._
 
-## Composed.Commands
+### Composed.Commands
 
 * In v0.1.0 the symbols package has issues. With the new release, this is hopefully resolved.
 
