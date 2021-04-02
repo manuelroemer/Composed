@@ -10,7 +10,7 @@ namespace Composed.Commands.Tests
     public class ComposeTests
     {
         [Fact]
-        public void UseCommand_Sync_ThrowsArgumentNullException()
+        public void UseCommand_NullArguments_ThrowsArgumentNullException()
         {
             Should.Throw<ArgumentNullException>(() => UseCommand(execute: null!, canExecute: () => true, scheduler: DefaultScheduler.Instance, dependencies: Array.Empty<IObservable<Unit>>()));
             Should.Throw<ArgumentNullException>(() => UseCommand(execute: () => { }, null!, scheduler: DefaultScheduler.Instance, dependencies: Array.Empty<IObservable<Unit>>()));
