@@ -96,8 +96,8 @@ namespace Composed
         ///         should be notified about that change.
         ///     </para>
         ///     <para>
-        ///         Scheduling of <paramref name="compute"/> invocations depends on the observables passed as
-        ///         <paramref name="dependencies"/>.
+        ///         Scheduling of <paramref name="compute"/> invocations and any subsequent notifications
+        ///         depends on the observables passed as <paramref name="dependencies"/>.
         ///     </para>
         /// </summary>
         /// <typeparam name="TResult">
@@ -148,8 +148,8 @@ namespace Composed
         ///     </para>
         ///     <para>
         ///         This overload allows you to specify an <see cref="IScheduler"/>
-        ///         which is used for scheduling <paramref name="compute"/> invocations whenever
-        ///         a dependency changes.
+        ///         which is used for scheduling <paramref name="compute"/> invocations and any subsequent
+        ///         notifications.
         ///     </para>
         ///     <para>
         ///         When the ref's value is recomputed, it will use <see cref="EqualityComparer{T}.Default"/>
@@ -175,8 +175,8 @@ namespace Composed
         /// </param>
         /// <param name="scheduler">
         ///     <para>
-        ///         An <see cref="IScheduler"/> on which the <paramref name="compute"/> invocation is scheduled
-        ///         whenever a dependency changes.<br/>
+        ///         An <see cref="IScheduler"/> on which the <paramref name="compute"/> invocation and
+        ///         any subsequent notifications are scheduled.<br/>
         ///         <b>Important: </b> The initial invocation of <paramref name="compute"/> is always run immediately
         ///         on the calling thread and <i>is not</i> scheduled on this scheduler.
         ///     </para>
@@ -227,8 +227,8 @@ namespace Composed
         ///         observers should be notified about such a change.
         ///     </para>
         ///     <para>
-        ///         Scheduling of <paramref name="compute"/> invocations depends on the observables passed as
-        ///         <paramref name="dependencies"/>.
+        ///         Scheduling of <paramref name="compute"/> invocations and any subsequent notifications
+        ///         depends on the observables passed as <paramref name="dependencies"/>.
         ///     </para>
         /// </summary>
         /// <typeparam name="TResult">
@@ -303,8 +303,8 @@ namespace Composed
         ///         This overload allows you to specify an <see cref="IEqualityComparer{T}"/> which is used
         ///         by the ref for determining whether its value effectively changes and whether
         ///         observers should be notified about such a change and an <see cref="IScheduler"/>
-        ///         which is used for scheduling <paramref name="compute"/> invocations whenever
-        ///         a dependency changes.
+        ///         which is used for scheduling <paramref name="compute"/> invocations and any
+        ///         subsequent notifications.
         ///     </para>
         /// </summary>
         /// <typeparam name="TResult">
@@ -341,8 +341,8 @@ namespace Composed
         /// </param>
         /// <param name="scheduler">
         ///     <para>
-        ///         An <see cref="IScheduler"/> on which the <paramref name="compute"/> invocation is scheduled
-        ///         whenever a dependency changes.<br/>
+        ///         An <see cref="IScheduler"/> on which the <paramref name="compute"/> invocation and
+        ///         any subsequent notifications are scheduled.<br/>
         ///         <b>Important: </b> The initial invocation of <paramref name="compute"/> is always run immediately
         ///         on the calling thread and <i>is not</i> scheduled on this scheduler.
         ///     </para>
