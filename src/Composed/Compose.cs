@@ -43,6 +43,11 @@ namespace Composed
         /// <returns>
         ///     A new mutable <see cref="IRef{T}"/> instance which holds the specified <paramref name="initialValue"/>.
         /// </returns>
+        /// <remarks>
+        ///     <b>Thread Safety:</b><br/>
+        ///     Refs returned by this function synchronize while comparing and setting new values.
+        ///     They <i>do not</i> synchronize during any subsequent change notifications.
+        /// </remarks>
         public static IRef<T> Ref<T>(T initialValue) =>
             Ref(initialValue, equalityComparer: null);
 
@@ -80,6 +85,11 @@ namespace Composed
         /// <returns>
         ///     A new mutable <see cref="IRef{T}"/> instance which holds the specified <paramref name="initialValue"/>.
         /// </returns>
+        /// <remarks>
+        ///     <b>Thread Safety:</b><br/>
+        ///     Refs returned by this function synchronize while comparing and setting new values.
+        ///     They <i>do not</i> synchronize during any subsequent change notifications.
+        /// </remarks>
         public static IRef<T> Ref<T>(T initialValue, IEqualityComparer<T>? equalityComparer) =>
             new Ref<T>(initialValue, equalityComparer);
 
@@ -586,11 +596,11 @@ namespace Composed
             return SyncWatchImpl(effect, runEffectNow: true, scheduler, dependencies);
         }
 
-        /// <inheritdoc cref="WatchEffect(Func{CancellationToken, Task}, IObservable{Unit}[])"/>
+        /// <inheritdoc cref="WatchEffect(Action, IObservable{Unit}[])"/>
         public static IDisposable WatchEffect(Func<Task> effect, params IObservable<Unit>[] dependencies) =>
             WatchEffect(effect, scheduler: null, dependencies);
 
-        /// <inheritdoc cref="WatchEffect(Func{CancellationToken, Task}, IScheduler?, IObservable{Unit}[])"/>
+        /// <inheritdoc cref="WatchEffect(Action, IScheduler?, IObservable{Unit}[])"/>
         public static IDisposable WatchEffect(Func<Task> effect, IScheduler? scheduler, params IObservable<Unit>[] dependencies)
         {
             _ = effect ?? throw new ArgumentNullException(nameof(effect));

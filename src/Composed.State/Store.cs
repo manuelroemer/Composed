@@ -22,7 +22,7 @@ namespace Composed.State
     ///                 <description>
     ///                     Because <see cref="State"/> is a ref, you can fully utilize Composed's API to
     ///                     interact with it.
-    ///                     <see cref="Compose.UseStore{TState, T}(Store{TState}, Func{TState, T})"/>
+    ///                     <see cref="Compose.UseState{TState, T}(Store{TState}, Func{TState, T})"/>
     ///                     is the recommended way to <i>select</i> a property from the store's state.
     ///                 </description>
     ///             </item>
@@ -35,10 +35,7 @@ namespace Composed.State
     ///         </list>
     ///     </para>
     /// </summary>
-    /// <typeparam name="TState">
-    ///     The type of the state which is managed by the store.
-    ///     See remarks for additional details.
-    /// </typeparam>
+    /// <typeparam name="TState">The type of the state which is managed by the store.</typeparam>
     /// <remarks>
     ///     <para>
     ///         It is strongly recommended that the managed state type <typeparamref name="TState"/> is immutable.
@@ -48,20 +45,21 @@ namespace Composed.State
     ///     </para>
     ///     <para>
     ///         <b>Thread Safety:</b><br/>
-    ///         The <see cref="Store{TState}"/> class is generally thread safe with following characteristics:
+    ///         The <see cref="Store{TState}"/> class has the following threading characteristics:
     ///         <list type="bullet">
     ///             <item>
     ///                 <description>
     ///                     Setting the store's state is synchronized and can therefore be done concurrently.
-    ///                     See <see cref="SetState(Func{TState, TState})"/> for details and important
-    ///                     implementer guidelines.
+    ///                     See <see cref="SetState(Func{TState, TState})"/> for details and implications.
     ///                 </description>
     ///             </item>
     ///             <item>
     ///                 <description>
-    ///                     The store's <see cref="State"/> ref follows the threading model of Composed's default
-    ///                     ref implementation.
-    ///                     See <see cref="Ref{T}(T)"/> for details.
+    ///                     The store's <see cref="State"/> ref is a standard ref returned by
+    ///                     <see cref="Ref{T}(T, IEqualityComparer{T})"/>.
+    ///                     Its change notifications are <b>not</b> synchronized.
+    ///                     If multiple threads interact with the store, watchers should use
+    ///                     schedulers to avoid race conditions and/or stale data.
     ///                 </description>
     ///             </item>
     ///         </list>

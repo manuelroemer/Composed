@@ -30,6 +30,10 @@ namespace Composed
     ///     </para>
     /// </remarks>
     /// <seealso cref="Compose"/>
+    /// <remarks>
+    ///     It is generally not recommended to manually implement this interface.
+    ///     Whenever possible, utilize the <see cref="Compose.Ref{T}(T)"/> overloads to create refs.
+    /// </remarks>
     public interface IReadOnlyRef<out T> : IObservable<Unit>, INotifyPropertyChanged
     {
         /// <summary>

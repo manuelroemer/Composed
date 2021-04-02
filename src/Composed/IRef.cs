@@ -17,6 +17,10 @@ namespace Composed
     /// </summary>
     /// <typeparam name="T">The type of the value held by the ref.</typeparam>
     /// <seealso cref="Compose"/>
+    /// <remarks>
+    ///     It is generally not recommended to manually implement this interface.
+    ///     Whenever possible, utilize the <see cref="Compose.Ref{T}(T)"/> overloads to create refs.
+    /// </remarks>
     public interface IRef<T> : IReadOnlyRef<T>
     {
         /// <summary>
