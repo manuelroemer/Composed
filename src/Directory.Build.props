@@ -23,7 +23,8 @@
     
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>../key.snk</AssemblyOriginatorKeyFile>
-    
+
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
     <CodeAnalysisRuleSet>../Default.ruleset</CodeAnalysisRuleSet>
 
     <IsTestProject>$(MSBuildProjectName.Contains('Test'))</IsTestProject>
@@ -44,7 +45,6 @@
 
   <ItemGroup>
     <PackageReference Include="Nullable" Version="*" PrivateAssets="All" />
-    <PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="*" PrivateAssets="All" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="*" PrivateAssets="All"/>
   </ItemGroup>
 </Project>

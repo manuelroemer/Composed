@@ -24,7 +24,7 @@ namespace Composed.Commands
         private EventHandler? _canExecuteChanged;
 
         /// <inheritdoc/>
-        event EventHandler ICommand.CanExecuteChanged
+        event EventHandler? ICommand.CanExecuteChanged
         {
             add
             {
@@ -60,11 +60,11 @@ namespace Composed.Commands
         }
 
         /// <inheritdoc/>
-        bool ICommand.CanExecute(object parameter) =>
+        bool ICommand.CanExecute(object? parameter) =>
             CanExecute.Value;
 
         /// <inheritdoc/>
-        void ICommand.Execute(object parameter) =>
+        void ICommand.Execute(object? parameter) =>
             Execute();
 
         /// <summary>

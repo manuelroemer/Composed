@@ -86,7 +86,7 @@ namespace Composed.State
         ///     </para>
         /// </summary>
         /// <param name="initialState">The initial state of the store.</param>
-        public Store(TState initialState)
+        protected Store(TState initialState)
             : this(initialState, equalityComparer: null) { }
 
         /// <summary>
@@ -111,7 +111,7 @@ namespace Composed.State
         ///         If this is <see langword="null"/>, <see cref="EqualityComparer{T}.Default"/> is used instead.
         ///     </para>
         /// </param>
-        public Store(TState initialState, IEqualityComparer<TState>? equalityComparer)
+        protected Store(TState initialState, IEqualityComparer<TState>? equalityComparer)
         {
             _state = Ref(initialState, equalityComparer);
             State = _state;
