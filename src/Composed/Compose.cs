@@ -30,8 +30,8 @@ namespace Composed
         ///         specified <paramref name="initialValue"/>.
         ///     </para>
         ///     <para>
-        ///         When its value changes, the ref will use <see cref="EqualityComparer{T}.Default"/>
-        ///         for determining whether the value has effectively changed and whether dependents
+        ///         When the ref's value is set, it will use <see cref="EqualityComparer{T}.Default"/>
+        ///         for determining whether its value effectively changes and whether observers
         ///         should be notified about that change.
         ///     </para>
         /// </summary>
@@ -42,25 +42,6 @@ namespace Composed
         /// <returns>
         ///     A new mutable <see cref="IRef{T}"/> instance which holds the specified <paramref name="initialValue"/>.
         /// </returns>
-        /// <example>
-        ///     The following code demonstrates how you can create a ref for various kind of objects:
-        ///
-        ///     <code>
-        ///     using System;
-        ///     using Composed;
-        ///     using static Composed.Compose;
-        ///
-        ///     IRef&lt;string&gt; stringRef = Ref("Hello World");
-        ///     IRef&lt;int&gt; intRef = Ref(123);
-        ///
-        ///     Console.WriteLine(stringRef.Value);
-        ///     Console.WriteLine(intRef.Value);
-        ///
-        ///     // Output:
-        ///     // Hello World
-        ///     // 123
-        ///     </code>
-        /// </example>
         public static IRef<T> Ref<T>(T initialValue) =>
             Ref(initialValue, equalityComparer: null);
 
@@ -70,9 +51,9 @@ namespace Composed
         ///         specified <paramref name="initialValue"/>.
         ///     </para>
         ///     <para>
-        ///         This overload allows you to specify the <see cref="IEqualityComparer{T}"/> to be used
-        ///         by the ref for determining whether the value has effectively changed and whether
-        ///         dependents should be notified about that change.
+        ///         This overload allows you to specify an <see cref="IEqualityComparer{T}"/> which is used
+        ///         by the ref for determining whether its value effectively changes and whether
+        ///         observers should be notified about such a change.
         ///     </para>
         /// </summary>
         /// <typeparam name="T">The type of the value held by the ref.</typeparam>
@@ -83,59 +64,77 @@ namespace Composed
         ///     <para>
         ///         An <see cref="IEqualityComparer{T}"/> instance which will be used to compare the
         ///         ref's new and old value when it changes.
-        ///         The ref will only notify its dependents of the change when the equality comparer
+        ///         The ref will only notify its observers about the change when the equality comparer
         ///         considers the two values unequal.
         ///     </para>
         ///     <para>
         ///         If this is <see langword="null"/>, <see cref="EqualityComparer{T}.Default"/> is used instead.
         ///     </para>
+        ///     <para>
+        ///         <b>Important: </b> The equality comparer's <see cref="IEqualityComparer{T}.Equals(T, T)"/>
+        ///         method is called from a <c>lock</c> block.
+        ///         To avoid deadlocks, ensure that the function is not blocking or joining any thread.
+        ///     </para>
         /// </param>
         /// <returns>
         ///     A new mutable <see cref="IRef{T}"/> instance which holds the specified <paramref name="initialValue"/>.
         /// </returns>
-        /// <example>
-        ///     The following code demonstrates the effect of using a custom <see cref="IEqualityComparer{T}"/>:
-        ///
-        ///     <code>
-        ///     using System;
-        ///     using Composed;
-        ///     using static Composed.Compose;
-        ///     
-        ///     class NeverEqualEqualityComparer&lt;T&gt; : EqualityComparer&lt;T&gt;
-        ///     {
-        ///         public override bool Equals(T x, T y) => false;
-        ///         
-        ///         public override int GetHashCode(T obj) => obj.GetHashCode();
-        ///     }
-        ///     
-        ///     IRef&lt;int&gt; refWithCustomComparer = Ref(123, new NeverEqualEqualityComparer&lt;int&gt;());
-        ///     IRef&lt;int&gt; refWithoutCustomComparer = Ref(123, equalityComparer: null); // Equivalent to `Ref(123);`
-        ///
-        ///     Watch(
-        ///         () => Console.WriteLine($"refWithCustomComparer changed. New: {refWithCustomComparer.Value}"),
-        ///         refWithCustomComparer
-        ///     );
-        ///
-        ///     Watch(
-        ///         () => Console.WriteLine($"refWithoutCustomComparer changed. New: {refWithoutCustomComparer.Value}"),
-        ///         refWithoutCustomComparer
-        ///     );
-        ///
-        ///     refWithCustomComparer.Value = 123;
-        ///     refWithoutCustomComparer.Value = 123;
-        ///
-        ///     refWithCustomComparer.Value = 456;
-        ///     refWithoutCustomComparer.Value = 456;
-        /// 
-        ///     // Output:
-        ///     // refWithCustomComparer changed. New: 123
-        ///     // refWithCustomComparer changed. New: 456
-        ///     // refWithoutCustomComparer changed. New: 456
-        ///     </code>
-        /// </example>
         public static IRef<T> Ref<T>(T initialValue, IEqualityComparer<T>? equalityComparer) =>
             new Ref<T>(initialValue, equalityComparer);
 
+        /// <summary>
+        ///     <para>
+        ///         Creates and returns a new <see cref="IReadOnlyRef{T}"/> instance whose value
+        ///         is (re-)computed by the specified <paramref name="compute"/> function both initially
+        ///         and whenever a dependency in the specified <paramref name="dependencies"/> array changes.
+        ///         <br/>
+        ///         <c>Computed</c> is therefore ideal to create a ref whose value depends on other refs.
+        ///     </para>
+        ///     <para>
+        ///         When the ref's value is recomputed, it will use <see cref="EqualityComparer{T}.Default"/>
+        ///         for determining whether its value effectively changes and whether observers
+        ///         should be notified about that change.
+        ///     </para>
+        ///     <para>
+        ///         Scheduling of <paramref name="compute"/> invocations depends on the observables passed as
+        ///         <paramref name="dependencies"/>.
+        ///     </para>
+        /// </summary>
+        /// <typeparam name="TResult">
+        ///     The type of the value returned by <paramref name="compute"/> and held by the ref.
+        /// </typeparam>
+        /// <param name="compute">
+        ///     <para>
+        ///         A function which computes the ref's new value.
+        ///         It is immediately invoked to compute the ref's initial value and then subsequently
+        ///         invoked whenever one of the <paramref name="dependencies"/> changes.
+        ///     </para>
+        ///     <para>
+        ///         It is strongly recommeneded to keep this function pure and free of side-effects.
+        ///         Use one of the respective <see cref="Watch(Action, IObservable{Unit}[])"/> or
+        ///         <see cref="WatchEffect(Action, IObservable{Unit}[])"/> overloads if you want
+        ///         run side-effects when a dependency changes.
+        ///     </para>
+        /// </param>
+        /// <param name="dependencies">
+        ///     <para>
+        ///         A set of dependencies which will be watched for changes.
+        ///         This can be any observable. <see cref="IRef{T}"/> and <see cref="IReadOnlyRef{T}"/> instances
+        ///         implement <see cref="IObservable{T}"/> and can directly be passed as dependencies.
+        ///     </para>
+        ///     <para>
+        ///         If this is empty, ref's value will never be recomputed.
+        ///     </para>
+        /// </param>
+        /// <returns>
+        ///     A new <see cref="IReadOnlyRef{T}"/> instance which initially holds the value returned
+        ///     by the <paramref name="compute"/> function and recomputes that value whenever a dependency
+        ///     in the specified <paramref name="dependencies"/> array changes.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="compute"/>, <paramref name="dependencies"/> or one of the dependencies in
+        ///     the <paramref name="dependencies"/> array is <see langword="null"/>.
+        /// </exception>
         public static IReadOnlyRef<TResult> Computed<TResult>(Func<TResult> compute, params IObservable<Unit>[] dependencies) =>
             Computed(compute, equalityComparer: null, scheduler: null, dependencies);
 
@@ -148,34 +147,49 @@ namespace Composed
         ///         <c>Computed</c> is therefore ideal to create a ref whose value depends on other refs.
         ///     </para>
         ///     <para>
-        ///         When its value changes, the ref will use <see cref="EqualityComparer{T}.Default"/>
-        ///         for determining whether the value has effectively changed and whether dependents
+        ///         This overload allows you to specify an <see cref="IScheduler"/>
+        ///         which is used for scheduling <paramref name="compute"/> invocations whenever
+        ///         a dependency changes.
+        ///     </para>
+        ///     <para>
+        ///         When the ref's value is recomputed, it will use <see cref="EqualityComparer{T}.Default"/>
+        ///         for determining whether its value effectively changes and whether observers
         ///         should be notified about that change.
         ///     </para>
         /// </summary>
         /// <typeparam name="TResult">
-        ///     The type of the value produced by <paramref name="compute"/> and held by the ref.
+        ///     The type of the value returned by <paramref name="compute"/> and held by the ref.
         /// </typeparam>
         /// <param name="compute">
         ///     <para>
-        ///         A function which, when invoked, computes the ref's new value.
+        ///         A function which computes the ref's new value.
+        ///         It is immediately invoked to compute the ref's initial value and then subsequently
+        ///         invoked whenever one of the <paramref name="dependencies"/> changes.
         ///     </para>
         ///     <para>
-        ///         It is a good practice to keep this function free of side effects.
-        ///         For side effects, use one of the <see cref="Watch(Action, IDependency[])"/>
-        ///         and <see cref="WatchEffect(Action, IDependency[])"/> functions.
+        ///         It is strongly recommeneded to keep this function pure and free of side-effects.
+        ///         Use one of the respective <see cref="Watch(Action, IObservable{Unit}[])"/> or
+        ///         <see cref="WatchEffect(Action, IObservable{Unit}[])"/> overloads if you want
+        ///         run side-effects when a dependency changes.
+        ///     </para>
+        /// </param>
+        /// <param name="scheduler">
+        ///     <para>
+        ///         An <see cref="IScheduler"/> on which the <paramref name="compute"/> invocation is scheduled
+        ///         whenever a dependency changes.<br/>
+        ///         <b>Important: </b> The initial invocation of <paramref name="compute"/> is always run immediately
+        ///         on the calling thread and <i>is not</i> scheduled on this scheduler.
+        ///     </para>
+        ///     <para>
+        ///         If this is <see langword="null"/>, scheduling of <paramref name="compute"/> invocations
+        ///         depends on the observables passed as <paramref name="dependencies"/>.
         ///     </para>
         /// </param>
         /// <param name="dependencies">
         ///     <para>
         ///         A set of dependencies which will be watched for changes.
-        ///     </para>
-        ///     <para>
-        ///         This can be any object implementing the <see cref="IDependency"/> interface.
-        ///         Refs implement this interface and can directly be passed.
-        ///         Composed also provides a way to convert any <see cref="IObservable{T}"/> to an
-        ///         <see cref="IDependency"/> via the
-        ///         <see cref="ObservableExtensions.ToDependency{T}(IObservable{T})"/> function.
+        ///         This can be any observable. <see cref="IRef{T}"/> and <see cref="IReadOnlyRef{T}"/> instances
+        ///         implement <see cref="IObservable{T}"/> and can directly be passed as dependencies.
         ///     </para>
         ///     <para>
         ///         If this is empty, ref's value will never be recomputed.
@@ -186,28 +200,10 @@ namespace Composed
         ///     by the <paramref name="compute"/> function and recomputes that value whenever a dependency
         ///     in the specified <paramref name="dependencies"/> array changes.
         /// </returns>
-        /// <example>
-        ///     The following code demonstrates how <c>Computed</c> can be used to create a ref whose value depends
-        ///     on another ref:
-        ///
-        ///     <code>
-        ///     using System;
-        ///     using Composed;
-        ///     using static Composed.Compose;
-        ///
-        ///     IRef&lt;int&gt; number = Ref(0);
-        ///     IReadOnlyRef&lt;int&gt; doubleNumber = Computed(() => number.Value * 2, number);
-        ///
-        ///     Watch(() => Console.WriteLine($"number: {number.Value}, doubleNumber: {doubleNumber.Value}), doubleNumber);
-        ///
-        ///     number.Value = 1;
-        ///     number.Value = 2;
-        ///
-        ///     // Output:
-        ///     // number: 1, doubleNumber: 2
-        ///     // number: 2, doubleNumber: 4
-        ///     </code>
-        /// </example>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="compute"/>, <paramref name="dependencies"/> or one of the dependencies in
+        ///     the <paramref name="dependencies"/> array is <see langword="null"/>.
+        /// </exception>
         public static IReadOnlyRef<TResult> Computed<TResult>(
             Func<TResult> compute,
             IScheduler? scheduler,
@@ -217,6 +213,75 @@ namespace Composed
             return Computed(compute, equalityComparer: null, scheduler, dependencies);
         }
 
+        /// <summary>
+        ///     <para>
+        ///         Creates and returns a new <see cref="IReadOnlyRef{T}"/> instance whose value
+        ///         is (re-)computed by the specified <paramref name="compute"/> function both initially
+        ///         and whenever a dependency in the specified <paramref name="dependencies"/> array changes.
+        ///         <br/>
+        ///         <c>Computed</c> is therefore ideal to create a ref whose value depends on other refs.
+        ///     </para>
+        ///     <para>
+        ///         This overload allows you to specify an <see cref="IEqualityComparer{T}"/> which is used
+        ///         by the ref for determining whether its value effectively changes and whether
+        ///         observers should be notified about such a change.
+        ///     </para>
+        ///     <para>
+        ///         Scheduling of <paramref name="compute"/> invocations depends on the observables passed as
+        ///         <paramref name="dependencies"/>.
+        ///     </para>
+        /// </summary>
+        /// <typeparam name="TResult">
+        ///     The type of the value returned by <paramref name="compute"/> and held by the ref.
+        /// </typeparam>
+        /// <param name="compute">
+        ///     <para>
+        ///         A function which computes the ref's new value.
+        ///         It is immediately invoked to compute the ref's initial value and then subsequently
+        ///         invoked whenever one of the <paramref name="dependencies"/> changes.
+        ///     </para>
+        ///     <para>
+        ///         It is strongly recommeneded to keep this function pure and free of side-effects.
+        ///         Use one of the respective <see cref="Watch(Action, IObservable{Unit}[])"/> or
+        ///         <see cref="WatchEffect(Action, IObservable{Unit}[])"/> overloads if you want
+        ///         run side-effects when a dependency changes.
+        ///     </para>
+        /// </param>
+        /// <param name="equalityComparer">
+        ///     <para>
+        ///         An <see cref="IEqualityComparer{T}"/> instance which will be used to compare the
+        ///         ref's new and old value when it changes.
+        ///         The ref will only notify its observers about the change when the equality comparer
+        ///         considers the two values unequal.
+        ///     </para>
+        ///     <para>
+        ///         If this is <see langword="null"/>, <see cref="EqualityComparer{T}.Default"/> is used instead.
+        ///     </para>
+        ///     <para>
+        ///         <b>Important: </b> The equality comparer's <see cref="IEqualityComparer{T}.Equals(T, T)"/>
+        ///         method is called from a <c>lock</c> block.
+        ///         To avoid deadlocks, ensure that the function is not blocking or joining any thread.
+        ///     </para>
+        /// </param>
+        /// <param name="dependencies">
+        ///     <para>
+        ///         A set of dependencies which will be watched for changes.
+        ///         This can be any observable. <see cref="IRef{T}"/> and <see cref="IReadOnlyRef{T}"/> instances
+        ///         implement <see cref="IObservable{T}"/> and can directly be passed as dependencies.
+        ///     </para>
+        ///     <para>
+        ///         If this is empty, ref's value will never be recomputed.
+        ///     </para>
+        /// </param>
+        /// <returns>
+        ///     A new <see cref="IReadOnlyRef{T}"/> instance which initially holds the value returned
+        ///     by the <paramref name="compute"/> function and recomputes that value whenever a dependency
+        ///     in the specified <paramref name="dependencies"/> array changes.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="compute"/>, <paramref name="dependencies"/> or one of the dependencies in
+        ///     the <paramref name="dependencies"/> array is <see langword="null"/>.
+        /// </exception>
         public static IReadOnlyRef<TResult> Computed<TResult>(
             Func<TResult> compute,
             IEqualityComparer<TResult>? equalityComparer,
@@ -235,45 +300,62 @@ namespace Composed
         ///         <c>Computed</c> is therefore ideal to create a ref whose value depends on other refs.
         ///     </para>
         ///     <para>
-        ///         This overload allows you to specify the <see cref="IEqualityComparer{T}"/> to be used
-        ///         by the ref for determining whether the value has effectively changed and whether
-        ///         dependents should be notified about that change.
+        ///         This overload allows you to specify an <see cref="IEqualityComparer{T}"/> which is used
+        ///         by the ref for determining whether its value effectively changes and whether
+        ///         observers should be notified about such a change and an <see cref="IScheduler"/>
+        ///         which is used for scheduling <paramref name="compute"/> invocations whenever
+        ///         a dependency changes.
         ///     </para>
         /// </summary>
         /// <typeparam name="TResult">
-        ///     The type of the value produced by <paramref name="compute"/> and held by the ref.
+        ///     The type of the value returned by <paramref name="compute"/> and held by the ref.
         /// </typeparam>
         /// <param name="compute">
         ///     <para>
-        ///         A function which, when invoked, computes the ref's new value.
+        ///         A function which computes the ref's new value.
+        ///         It is immediately invoked to compute the ref's initial value and then subsequently
+        ///         invoked whenever one of the <paramref name="dependencies"/> changes.
         ///     </para>
         ///     <para>
-        ///         It is a good practice to keep this function free of side effects.
-        ///         For side effects, use one of the <see cref="Watch(Action, IDependency[])"/>
-        ///         and <see cref="WatchEffect(Action, IDependency[])"/> functions.
+        ///         It is strongly recommeneded to keep this function pure and free of side-effects.
+        ///         Use one of the respective <see cref="Watch(Action, IObservable{Unit}[])"/> or
+        ///         <see cref="WatchEffect(Action, IObservable{Unit}[])"/> overloads if you want
+        ///         run side-effects when a dependency changes.
         ///     </para>
         /// </param>
         /// <param name="equalityComparer">
         ///     <para>
         ///         An <see cref="IEqualityComparer{T}"/> instance which will be used to compare the
         ///         ref's new and old value when it changes.
-        ///         The ref will only notify its dependents of the change when the equality comparer
+        ///         The ref will only notify its observers about the change when the equality comparer
         ///         considers the two values unequal.
         ///     </para>
         ///     <para>
         ///         If this is <see langword="null"/>, <see cref="EqualityComparer{T}.Default"/> is used instead.
         ///     </para>
+        ///     <para>
+        ///         <b>Important: </b> The equality comparer's <see cref="IEqualityComparer{T}.Equals(T, T)"/>
+        ///         method is called from a <c>lock</c> block.
+        ///         To avoid deadlocks, ensure that the function is not blocking or joining any thread.
+        ///     </para>
+        /// </param>
+        /// <param name="scheduler">
+        ///     <para>
+        ///         An <see cref="IScheduler"/> on which the <paramref name="compute"/> invocation is scheduled
+        ///         whenever a dependency changes.<br/>
+        ///         <b>Important: </b> The initial invocation of <paramref name="compute"/> is always run immediately
+        ///         on the calling thread and <i>is not</i> scheduled on this scheduler.
+        ///     </para>
+        ///     <para>
+        ///         If this is <see langword="null"/>, scheduling of <paramref name="compute"/> invocations
+        ///         depends on the observables passed as <paramref name="dependencies"/>.
+        ///     </para>
         /// </param>
         /// <param name="dependencies">
         ///     <para>
         ///         A set of dependencies which will be watched for changes.
-        ///     </para>
-        ///     <para>
-        ///         This can be any object implementing the <see cref="IDependency"/> interface.
-        ///         Refs implement this interface and can directly be passed.
-        ///         Composed also provides a way to convert any <see cref="IObservable{T}"/> to an
-        ///         <see cref="IDependency"/> via the
-        ///         <see cref="ObservableExtensions.ToDependency{T}(IObservable{T})"/> function.
+        ///         This can be any observable. <see cref="IRef{T}"/> and <see cref="IReadOnlyRef{T}"/> instances
+        ///         implement <see cref="IObservable{T}"/> and can directly be passed as dependencies.
         ///     </para>
         ///     <para>
         ///         If this is empty, ref's value will never be recomputed.
@@ -284,70 +366,10 @@ namespace Composed
         ///     by the <paramref name="compute"/> function and recomputes that value whenever a dependency
         ///     in the specified <paramref name="dependencies"/> array changes.
         /// </returns>
-        /// <example>
-        ///     <para>
-        ///         The following code demonstrates how <c>Computed</c> can be used to create a ref whose value depends
-        ///         on another ref:
-        ///
-        ///         <code>
-        ///         using System;
-        ///         using Composed;
-        ///         using static Composed.Compose;
-        ///
-        ///         IRef&lt;int&gt; number = Ref(0);
-        ///         IReadOnlyRef&lt;int&gt; doubleNumber = Computed(() => number.Value * 2, number);
-        ///
-        ///         Watch(() => Console.WriteLine($"number: {number.Value}, doubleNumber: {doubleNumber.Value}), doubleNumber);
-        ///
-        ///         number.Value = 1;
-        ///         number.Value = 2;
-        ///
-        ///         // Output:
-        ///         // number: 1, doubleNumber: 2
-        ///         // number: 2, doubleNumber: 4
-        ///         </code>
-        ///     </para>
-        ///     <para>
-        ///         The following code demonstrates the effect of using a custom <see cref="IEqualityComparer{T}"/>:
-        ///
-        ///         <code>
-        ///         using System;
-        ///         using Composed;
-        ///         using static Composed.Compose;
-        ///         
-        ///         class NeverEqualEqualityComparer&lt;T&gt; : EqualityComparer&lt;T&gt;
-        ///         {
-        ///             public override bool Equals(T x, T y) => false;
-        ///             
-        ///             public override int GetHashCode(T obj) => obj.GetHashCode();
-        ///         }
-        ///         
-        ///         IRef&lt;int&gt; dependency = Ref(0);
-        ///         IReadOnlyRef&lt;int&gt; computedWithCustomComparer = Computed(() => 0, new NeverEqualEqualityComparer&lt;int&gt;(), dependency);
-        ///         IReadOnlyRef&lt;int&gt; computedWithoutCustomComparer = Computed(() => 0, equalityComparer: null, dependency);
-        ///
-        ///         Watch(
-        ///             () => Console.WriteLine($"computedWithCustomComparer changed. New: {computedWithCustomComparer.Value}"),
-        ///             computedWithCustomComparer
-        ///         );
-        ///
-        ///         Watch(
-        ///             () => Console.WriteLine($"computedWithoutCustomComparer changed. New: {computedWithoutCustomComparer.Value}"),
-        ///             computedWithoutCustomComparer
-        ///         );
-        ///
-        ///         // Note:
-        ///         // Changing `dependency.Value` only makes the computed refs recompute their value.
-        ///         // `dependency.Value` has no effect on the computation. Therefore it doesn't matter which value is assigned.
-        ///         dependency.Value++;
-        ///         dependency.Value++;
-        ///         
-        ///         // Output:
-        ///         // computedWithCustomComparer changed. New: 0
-        ///         // computedWithCustomComparer changed. New: 0
-        ///         </code>
-        ///     </para>
-        /// </example>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="compute"/>, <paramref name="dependencies"/> or one of the dependencies in
+        ///     the <paramref name="dependencies"/> array is <see langword="null"/>.
+        /// </exception>
         public static IReadOnlyRef<TResult> Computed<TResult>(
             Func<TResult> compute,
             IEqualityComparer<TResult>? equalityComparer,

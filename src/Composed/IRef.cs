@@ -40,7 +40,7 @@ namespace Composed
         ///     If <see langword="true"/>, the ref will not notify observers about a value change.
         /// </param>
         /// <returns>
-        ///     Returns whether the ref's value effectively changed, i.e. whether a change notification is/would
+        ///     Returns whether the ref's value changed and, as a result, whether a change notification should be/would
         ///     normally have been published.
         ///     You can use this return value to evaluate whether you should manually trigger a change notification
         ///     via <see cref="IReadOnlyRef{T}.Notify"/> when <paramref name="suppressNotification"/> is set

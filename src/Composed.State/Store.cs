@@ -6,7 +6,7 @@ namespace Composed.State
 
     /// <summary>
     ///     <para>
-    ///         The base class for a simple and yet flexible state container based on Composed's API.
+    ///         The base class for a state container based on Composed's API.
     ///     </para>
     ///     <para>
     ///         A <see cref="Store{TState}"/> implementation is based on the following key concepts:
