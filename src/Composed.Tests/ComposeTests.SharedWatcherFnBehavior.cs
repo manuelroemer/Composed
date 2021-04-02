@@ -329,8 +329,8 @@ namespace Composed.Tests
                 var effectMock = new Mock<Action>();
                 var @ref = watcher(effectMock.Object, dependencyObservable);
 
-                // When/Where the initial effect is scheduled is, for the moment, undefined behavior.
-                // It's only defined for Computed (which has a separate test case).
+                // The initial effect (if given) should not be run on the scheduler.
+                effectMock.Verify(fn => fn(), Times.Exactly(immediateEffect ? 1 : 0));
 
                 // When the dependency changes, the scheduling is decided by Rx. Since there's only
                 // one dependency (with a custom scheduler) the effect should be scheduled on that one.
