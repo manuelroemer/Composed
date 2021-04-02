@@ -6,6 +6,16 @@
       net5.0
     </TargetFrameworks>
     <IsPackable>true</IsPackable>
+    <Description>
+Composed is a set of independent libraries providing simple and yet flexible APIs for easily building
+reactive applications with a strong, but not exclusive, focus on GUI and MVVM based applications.
+
+This package provides a state container implementation for application state.
+
+Frequently used members include:
+- Store&lt;TState&gt;
+- UseStore(...)
+    </Description>
   </PropertyGroup>
 
   <ItemGroup>
