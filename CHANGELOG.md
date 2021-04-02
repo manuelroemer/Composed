@@ -1,5 +1,29 @@
 # Composed Changelog
 
+## v0.2.0
+
+### Composed
+
+* Ref interfaces no longer implement `INotifyPropertyChanging`.
+* Ref interfaces no longer implement `IObservable<T>`, but they *do* now implement `IObservable<Unit>`.
+* Ref interfaces no longer expose the `Changed` property.
+* `IReadOnlyRef<T>` now provides the `Notify()` method.
+* `IRef<T>` now provides the `SetValue(T value, bool supressNotification)` method.
+* The default ref implementation returned by `Ref(T)` locks/synchronizes while comparing the new value with
+  the old value and setting it.
+* Composition functions (`Computed`, `Watch`, `WatchEffect`) now all provide an `IScheduler` parameter
+  on which, if provided, the effect is scheduled.
+
+### Composed.Commands
+
+* Integrated the changes from the "Composed" package (removed `IDependency` references, provide scheduler, etc.).
+
+### Composed.State
+
+Initial release.
+
+
+
 ## v0.1.5
 
 ### Composed

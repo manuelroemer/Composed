@@ -4,7 +4,7 @@ namespace Composed
     using System.Collections.Generic;
     using System.Linq;
     using System.Reactive;
-    using System.Reactive.Disposables;
+    using System.Reactive.Concurrency;
     using System.Reactive.Linq;
     using System.Threading;
     using System.Threading.Tasks;
@@ -30,8 +30,9 @@ namespace Composed
         ///         specified <paramref name="initialValue"/>.
         ///     </para>
         ///     <para>
-        ///         When its value is changed, the ref will use <see cref="EqualityComparer{T}.Default"/>
-        ///         for determining whether dependencies will be notified about that change.
+        ///         When its value changes, the ref will use <see cref="EqualityComparer{T}.Default"/>
+        ///         for determining whether the value has effectively changed and whether dependents
+        ///         should be notified about that change.
         ///     </para>
         /// </summary>
         /// <typeparam name="T">The type of the value held by the ref.</typeparam>
@@ -70,7 +71,8 @@ namespace Composed
         ///     </para>
         ///     <para>
         ///         This overload allows you to specify the <see cref="IEqualityComparer{T}"/> to be used
-        ///         by the ref for determining whether dependencies will be notified about a value change.
+        ///         by the ref for determining whether the value has effectively changed and whether
+        ///         dependents should be notified about that change.
         ///     </para>
         /// </summary>
         /// <typeparam name="T">The type of the value held by the ref.</typeparam>
@@ -80,7 +82,7 @@ namespace Composed
         /// <param name="equalityComparer">
         ///     <para>
         ///         An <see cref="IEqualityComparer{T}"/> instance which will be used to compare the
-        ///         ref's new and old value when it is changed.
+        ///         ref's new and old value when it changes.
         ///         The ref will only notify its dependents of the change when the equality comparer
         ///         considers the two values unequal.
         ///     </para>
@@ -134,12 +136,22 @@ namespace Composed
         public static IRef<T> Ref<T>(T initialValue, IEqualityComparer<T>? equalityComparer) =>
             new Ref<T>(initialValue, equalityComparer);
 
+        public static IReadOnlyRef<TResult> Computed<TResult>(Func<TResult> compute, params IObservable<Unit>[] dependencies) =>
+            Computed(compute, equalityComparer: null, scheduler: null, dependencies);
+
         /// <summary>
-        ///     Creates and returns a new <see cref="IReadOnlyRef{T}"/> instance whose value
-        ///     is (re-)computed by the specified <paramref name="compute"/> function both initially
-        ///     and whenever a dependency in the specified <paramref name="dependencies"/> array changes.
-        ///     <br/>
-        ///     <c>Computed</c> is therefore ideal to create a ref whose value depends on other refs.
+        ///     <para>
+        ///         Creates and returns a new <see cref="IReadOnlyRef{T}"/> instance whose value
+        ///         is (re-)computed by the specified <paramref name="compute"/> function both initially
+        ///         and whenever a dependency in the specified <paramref name="dependencies"/> array changes.
+        ///         <br/>
+        ///         <c>Computed</c> is therefore ideal to create a ref whose value depends on other refs.
+        ///     </para>
+        ///     <para>
+        ///         When its value changes, the ref will use <see cref="EqualityComparer{T}.Default"/>
+        ///         for determining whether the value has effectively changed and whether dependents
+        ///         should be notified about that change.
+        ///     </para>
         /// </summary>
         /// <typeparam name="TResult">
         ///     The type of the value produced by <paramref name="compute"/> and held by the ref.
@@ -196,8 +208,23 @@ namespace Composed
         ///     // number: 2, doubleNumber: 4
         ///     </code>
         /// </example>
-        public static IReadOnlyRef<TResult> Computed<TResult>(Func<TResult> compute, params IDependency[] dependencies) =>
-            Computed(compute, equalityComparer: null, dependencies);
+        public static IReadOnlyRef<TResult> Computed<TResult>(
+            Func<TResult> compute,
+            IScheduler? scheduler,
+            params IObservable<Unit>[] dependencies
+        )
+        {
+            return Computed(compute, equalityComparer: null, scheduler, dependencies);
+        }
+
+        public static IReadOnlyRef<TResult> Computed<TResult>(
+            Func<TResult> compute,
+            IEqualityComparer<TResult>? equalityComparer,
+            params IObservable<Unit>[] dependencies
+        )
+        {
+            return Computed(compute, equalityComparer, scheduler: null, dependencies);
+        }
 
         /// <summary>
         ///     <para>
@@ -209,7 +236,8 @@ namespace Composed
         ///     </para>
         ///     <para>
         ///         This overload allows you to specify the <see cref="IEqualityComparer{T}"/> to be used
-        ///         by the ref for determining whether dependencies will be notified about a value change.
+        ///         by the ref for determining whether the value has effectively changed and whether
+        ///         dependents should be notified about that change.
         ///     </para>
         /// </summary>
         /// <typeparam name="TResult">
@@ -228,7 +256,7 @@ namespace Composed
         /// <param name="equalityComparer">
         ///     <para>
         ///         An <see cref="IEqualityComparer{T}"/> instance which will be used to compare the
-        ///         ref's new and old value when it is changed.
+        ///         ref's new and old value when it changes.
         ///         The ref will only notify its dependents of the change when the equality comparer
         ///         considers the two values unequal.
         ///     </para>
@@ -323,14 +351,18 @@ namespace Composed
         public static IReadOnlyRef<TResult> Computed<TResult>(
             Func<TResult> compute,
             IEqualityComparer<TResult>? equalityComparer,
-            params IDependency[] dependencies
+            IScheduler? scheduler,
+            params IObservable<Unit>[] dependencies
         )
         {
             _ = compute ?? throw new ArgumentNullException(nameof(compute));
             _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
             EnsureNoNullInDependencies(dependencies);
-            return ComputedImpl(compute, equalityComparer, dependencies);
+            return ComputedImpl(compute, equalityComparer, scheduler, dependencies);
         }
+
+        public static IDisposable Watch(Action effect, params IObservable<Unit>[] dependencies) =>
+            Watch(effect, scheduler: null, dependencies);
 
         /// <summary>
         ///     Watches each dependency specified in the <paramref name="dependencies"/> array for
@@ -452,19 +484,22 @@ namespace Composed
         ///         </code>
         ///     </para>
         /// </example>
-        public static IDisposable Watch(Action effect, params IDependency[] dependencies)
+        public static IDisposable Watch(Action effect, IScheduler? scheduler, params IObservable<Unit>[] dependencies)
         {
             _ = effect ?? throw new ArgumentNullException(nameof(effect));
             _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
             EnsureNoNullInDependencies(dependencies);
-            return WatchImpl(effect, runEffectNow: false, dependencies);
+            return SyncWatchImpl(effect, runEffectNow: false, scheduler, dependencies);
         }
+
+        public static IDisposable Watch(Func<Task> effect, params IObservable<Unit>[] dependencies) =>
+            Watch(effect, scheduler: null, dependencies);
 
         /// <summary>
         ///     Watches each dependency specified in the <paramref name="dependencies"/> array for
         ///     changes and invokes the specified <paramref name="effect"/> whenever such a
         ///     change occurs.
-        ///     In comparison to <see cref="WatchEffect(Func{Task}, IDependency[])"/>, the effect does
+        ///     In comparison to <see cref="WatchEffect(Func{Task}, IObservable{Unit}[])"/>, the effect does
         ///     not get invoked before one of the dependencies changes for the first time.
         /// </summary>
         /// <param name="effect">
@@ -618,19 +653,22 @@ namespace Composed
         ///         </code>
         ///     </para>
         /// </example>
-        public static IDisposable Watch(Func<Task> effect, params IDependency[] dependencies)
+        public static IDisposable Watch(Func<Task> effect, IScheduler? scheduler, params IObservable<Unit>[] dependencies)
         {
             _ = effect ?? throw new ArgumentNullException(nameof(effect));
             _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
             EnsureNoNullInDependencies(dependencies);
-            return Watch(_ => effect(), dependencies);
+            return Watch(_ => effect(), scheduler, dependencies);
         }
+
+        public static IDisposable Watch(Func<CancellationToken, Task> effect, params IObservable<Unit>[] dependencies) =>
+            Watch(effect, scheduler: null, dependencies);
 
         /// <summary>
         ///     Watches each dependency specified in the <paramref name="dependencies"/> array for
         ///     changes and invokes the specified <paramref name="effect"/> whenever such a
         ///     change occurs.
-        ///     In comparison to <see cref="WatchEffect(Func{CancellationToken, Task}, IDependency[])"/>, the effect does
+        ///     In comparison to <see cref="WatchEffect(Func{CancellationToken, Task}, IObservable{Unit}[])"/>, the effect does
         ///     not get invoked before one of the dependencies changes for the first time.
         ///     This overload provides a <see cref="CancellationToken"/> which notifies the <paramref name="effect"/>
         ///     when the subscription is canceled. 
@@ -651,7 +689,7 @@ namespace Composed
         ///         A set of dependencies which will be watched for changes.
         ///     </para>
         ///     <para>
-        ///         This can be any object implementing the <see cref="IDependency"/> interface.
+        ///         This can be any object implementing the <see cref="IObservable{Unit}"/> interface.
         ///         Refs implement this interface and can directly be passed.
         ///         Composed also provides a way to convert any <see cref="IObservable{T}"/> to an
         ///         <see cref="IDependency"/> via the
@@ -801,13 +839,20 @@ namespace Composed
         ///         </code>
         ///     </para>
         /// </example>
-        public static IDisposable Watch(Func<CancellationToken, Task> effect, params IDependency[] dependencies)
+        public static IDisposable Watch(
+            Func<CancellationToken, Task> effect,
+            IScheduler? scheduler,
+            params IObservable<Unit>[] dependencies
+        )
         {
             _ = effect ?? throw new ArgumentNullException(nameof(effect));
             _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
             EnsureNoNullInDependencies(dependencies);
-            return WatchImpl(effect, runEffectNow: false, dependencies);
+            return AsyncWatchImpl(effect, runEffectNow: false, scheduler, dependencies);
         }
+
+        public static IDisposable WatchEffect(Action effect, params IObservable<Unit>[] dependencies) =>
+            WatchEffect(effect, scheduler: null, dependencies);
 
         /// <summary>
         ///     Immediately invokes the specified <paramref name="effect"/> once.
@@ -935,13 +980,16 @@ namespace Composed
         ///         </code>
         ///     </para>
         /// </example>
-        public static IDisposable WatchEffect(Action effect, params IDependency[] dependencies)
+        public static IDisposable WatchEffect(Action effect, IScheduler? scheduler, params IObservable<Unit>[] dependencies)
         {
             _ = effect ?? throw new ArgumentNullException(nameof(effect));
             _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
             EnsureNoNullInDependencies(dependencies);
-            return WatchImpl(effect, runEffectNow: true, dependencies);
+            return SyncWatchImpl(effect, runEffectNow: true, scheduler, dependencies);
         }
+
+        public static IDisposable WatchEffect(Func<Task> effect, params IObservable<Unit>[] dependencies) =>
+            WatchEffect(effect, scheduler: null, dependencies);
 
         /// <summary>
         ///     Immediately invokes the specified <paramref name="effect"/> once.
@@ -1107,13 +1155,16 @@ namespace Composed
         ///         </code>
         ///     </para>
         /// </example>
-        public static IDisposable WatchEffect(Func<Task> effect, params IDependency[] dependencies)
+        public static IDisposable WatchEffect(Func<Task> effect, IScheduler? scheduler, params IObservable<Unit>[] dependencies)
         {
             _ = effect ?? throw new ArgumentNullException(nameof(effect));
             _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
             EnsureNoNullInDependencies(dependencies);
-            return WatchEffect(_ => effect(), dependencies);
+            return WatchEffect(_ => effect(), scheduler, dependencies);
         }
+
+        public static IDisposable WatchEffect(Func<CancellationToken, Task> effect, params IObservable<Unit>[] dependencies) =>
+            WatchEffect(effect, scheduler: null, dependencies);
 
         /// <summary>
         ///     Immediately invokes the specified <paramref name="effect"/> once.
@@ -1297,77 +1348,76 @@ namespace Composed
         ///         </code>
         ///     </para>
         /// </example>
-        public static IDisposable WatchEffect(Func<CancellationToken, Task> effect, params IDependency[] dependencies)
+        public static IDisposable WatchEffect(
+            Func<CancellationToken, Task> effect,
+            IScheduler? scheduler,
+            params IObservable<Unit>[] dependencies
+        )
         {
             _ = effect ?? throw new ArgumentNullException(nameof(effect));
             _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
             EnsureNoNullInDependencies(dependencies);
-            return WatchImpl(effect, runEffectNow: true, dependencies);
+            return AsyncWatchImpl(effect, runEffectNow: true, scheduler, dependencies);
         }
 
         private static IReadOnlyRef<TResult> ComputedImpl<TResult>(
             Func<TResult> compute,
             IEqualityComparer<TResult>? equalityComparer,
-            params IDependency[] dependencies
+            IScheduler? scheduler,
+            params IObservable<Unit>[] dependencies
         )
         {
-            var @ref = new ReadOnlyRef<TResult>(default!, equalityComparer);
-            WatchImpl(() => @ref.Value = compute(), runEffectNow: true, dependencies);
+            var @ref = Ref(compute(), equalityComparer);
+            SyncWatchImpl(() => @ref.Value = compute(), runEffectNow: false, scheduler, dependencies);
             return @ref;
         }
 
-        private static IDisposable WatchImpl(Action effect, bool runEffectNow, params IDependency[] dependencies)
+        private static IDisposable SyncWatchImpl(
+            Action effect,
+            bool runEffectNow,
+            IScheduler? scheduler,
+            params IObservable<Unit>[] dependencies
+        )
         {
-            if (runEffectNow)
-            {
-                effect();
-            }
-
-            if (dependencies.Length == 0)
-            {
-                return Disposable.Empty;
-            }
-
-            return dependencies
-                .Select(x => x.Changed)
-                .Merge()
+            return GetDependenciesObservable(runEffectNow, scheduler, dependencies)
                 .Subscribe(_ => effect());
         }
 
-        private static IDisposable WatchImpl(
+        private static IDisposable AsyncWatchImpl(
             Func<CancellationToken, Task> effect,
             bool runEffectNow,
-            params IDependency[] dependencies
+            IScheduler? scheduler,
+            params IObservable<Unit>[] dependencies
+        )
+        {
+            return GetDependenciesObservable(runEffectNow, scheduler, dependencies)
+                .SelectMany(async (_, cancellationToken) =>
+                {
+                    await effect(cancellationToken).ConfigureAwait(false);
+                    return Unit.Default;
+                })
+                .Subscribe();
+        }
+
+        private static IObservable<Unit> GetDependenciesObservable(
+            bool runEffectNow,
+            IScheduler? scheduler,
+            IEnumerable<IObservable<Unit>> dependencies
         )
         {
             var observable = runEffectNow
-                ? dependencies.Select(x => x.Changed).Prepend(RunEffectImmediatelyObservable).Merge()
-                : dependencies.Select(x => x.Changed).Merge();
+                ? dependencies.Prepend(RunEffectImmediatelyObservable).Merge()
+                : dependencies.Merge();
 
-#pragma warning disable CA2000 // CancellationTokenSource is disposed by the returned disposable.
-            var cts = new CancellationTokenSource();
-#pragma warning restore CA2000
-            var watchSubscription = Disposable.Empty;
-            var dependencySubscription = observable
-                .Finally(() => watchSubscription.Dispose())
-                .Subscribe(x => _ = effect(cts.Token));
-
-            return watchSubscription = Disposable.Create(() =>
+            if (scheduler is not null)
             {
-                dependencySubscription.Dispose();
+                observable = observable.ObserveOn(scheduler);
+            }
 
-                try
-                {
-                    cts.Cancel();
-                }
-                finally
-                {
-                    cts.Dispose();
-                }
-            });
+            return observable;
         }
 
-        private static void EnsureNoNullInDependencies(IDependency[] dependencies)
+        private static void EnsureNoNullInDependencies(IObservable<Unit>[] dependencies)
         {
             foreach (var dependency in dependencies)
             {

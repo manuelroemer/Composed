@@ -1,8 +1,8 @@
 namespace Composed.Commands
 {
     using System;
+    using System.Reactive;
     using System.Windows.Input;
-    using Composed;
     using Composed.Commands.Internal;
     using static Composed.Compose;
 
@@ -49,11 +49,11 @@ namespace Composed.Commands
             return new ComposedCommand<TParameter>(execute);
         }
 
-        /// <inheritdoc cref="UseCommand{TParameter}(ExecuteAction{TParameter}, CanExecuteFunc{TParameter}, IDependency[])"/>
+        /// <inheritdoc cref="UseCommand{TParameter}(ExecuteAction{TParameter}, CanExecuteFunc{TParameter}, IObservable{Unit}[])"/>
         public static IComposedCommand<object?> UseCommand(
             ExecuteAction execute,
             CanExecuteFunc canExecute,
-            params IDependency[] dependencies
+            params IObservable<Unit>[] dependencies
         )
         {
             _ = execute ?? throw new ArgumentNullException(nameof(execute));
@@ -86,13 +86,6 @@ namespace Composed.Commands
         ///         A set of dependencies which will be watched for changes.
         ///     </para>
         ///     <para>
-        ///         This can be any object implementing the <see cref="IDependency"/> interface.
-        ///         Refs implement this interface and can directly be passed.
-        ///         Composed also provides a way to convert any <see cref="IObservable{T}"/> to an
-        ///         <see cref="IDependency"/> via the
-        ///         <see cref="Composed.ObservableExtensions.ToDependency{T}(IObservable{T})"/> function.
-        ///     </para>
-        ///     <para>
         ///         If this is empty, the command's <see cref="ICommand.CanExecuteChanged"/> event
         ///         will never be raised.
         ///     </para>
@@ -108,8 +101,8 @@ namespace Composed.Commands
         ///         <item>
         ///             <description>
         ///                 The <paramref name="dependencies"/> are watched using the
-        ///                 <see cref="Watch(Action, IDependency[])"/> function.
-        ///                 All dependency specific behaviors documented in <see cref="Watch(Action, IDependency[])"/>
+        ///                 <see cref="Watch(Action, IObservable{Unit}[])"/> function.
+        ///                 All dependency specific behaviors documented in <see cref="Watch(Action, IObservable{Unit}[])"/>
         ///                 also apply to this function.
         ///             </description>
         ///         </item>
@@ -129,7 +122,7 @@ namespace Composed.Commands
         public static IComposedCommand<TParameter> UseCommand<TParameter>(
             ExecuteAction<TParameter> execute,
             CanExecuteFunc<TParameter> canExecute,
-            params IDependency[] dependencies
+            params IObservable<Unit>[] dependencies
         )
         {
             _ = execute ?? throw new ArgumentNullException(nameof(execute));
