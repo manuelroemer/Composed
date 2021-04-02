@@ -10,20 +10,15 @@
 Composed is a set of independent libraries providing simple and yet flexible APIs for easily building
 reactive applications with a strong, but not exclusive, focus on GUI and MVVM based applications.
 
-This package provides the foundational Composed API which all other Composed packages use as a basis.
-Yet, it can be used entirely on its own.
+This package provides a state container implementation for application state.
 
 Frequently used members include:
-- IRef&lt;T&gt;
-- IReadOnlyRef&lt;T&gt;
-- Ref(...)
-- Computed(...)
-- Watch(...)
-- WatchEffect(...)
+- Store&lt;TState&gt;
+- UseStore(...)
     </Description>
   </PropertyGroup>
-  
+
   <ItemGroup>
-    <PackageReference Include="System.Reactive" Version="5.0.0" />
+    <ProjectReference Include="..\Composed\Composed.csproj" />
   </ItemGroup>
 </Project>

@@ -6,6 +6,17 @@
       net5.0
     </TargetFrameworks>
     <IsPackable>true</IsPackable>
+    <Description>
+Composed is a set of independent libraries providing simple and yet flexible APIs for easily building
+reactive applications with a strong, but not exclusive, focus on GUI and MVVM based applications.
+
+This package provides reactive ICommand implementations and hooks for creating them.
+
+Frequently used members include:
+- ComposedCommand
+- ComposedCommand&lt;TState&gt;
+- UseCommand(...)
+    </Description>
   </PropertyGroup>
   
   <ItemGroup>

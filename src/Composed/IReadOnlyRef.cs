@@ -3,6 +3,7 @@ namespace Composed
     using System;
     using System.Collections.Generic;
     using System.ComponentModel;
+    using System.Reactive;
 
     /// <summary>
     ///     <para>
@@ -12,10 +13,8 @@ namespace Composed
     ///         Refs are the heart of Composed's API and are intended to be used together with the
     ///         functions in the <see cref="Compose"/> class.
     ///         They publish change notifications whenever their currently held values change.
-    ///         These notifications are published in the form of <see cref="INotifyPropertyChanging"/>
-    ///         and <see cref="INotifyPropertyChanged"/> events and via the <see cref="IObservable{T}"/>
-    ///         interface implemented by the ref.
-    ///         In essence, a ref is an observable which provides notifications whenever its value changes.
+    ///         These notifications are published in the form of the <see cref="INotifyPropertyChanged"/> event
+    ///         and via the <see cref="IObservable{Unit}"/> interface implemented by the ref.
     ///     </para>
     /// </summary>
     /// <typeparam name="T">The type of the value held by the ref.</typeparam>
@@ -31,11 +30,22 @@ namespace Composed
     ///     </para>
     /// </remarks>
     /// <seealso cref="Compose"/>
-    public interface IReadOnlyRef<out T> : IDependency, IObservable<T>, INotifyPropertyChanging, INotifyPropertyChanged
+    /// <remarks>
+    ///     It is generally not recommended to manually implement this interface.
+    ///     Whenever possible, utilize the <see cref="Compose.Ref{T}(T)"/> overloads to create refs.
+    /// </remarks>
+    public interface IReadOnlyRef<out T> : IObservable<Unit>, INotifyPropertyChanged
     {
         /// <summary>
         ///     Gets the value which is currently held by the ref.
         /// </summary>
         T Value { get; }
+
+        /// <summary>
+        ///     Notifies observers that the ref's value has changed.
+        ///     This enables you to manually re-evaluate dependencies and manually trigger effects
+        ///     which depend on this ref.
+        /// </summary>
+        void Notify();
     }
 }

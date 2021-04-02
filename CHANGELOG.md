@@ -1,12 +1,52 @@
 # Composed Changelog
 
+## v0.2.0
+
+### Composed
+
+* Ref interfaces no longer implement `INotifyPropertyChanging`.
+* Ref interfaces no longer implement `IObservable<T>`, but they *do* now implement `IObservable<Unit>`.
+* Ref interfaces no longer expose the `Changed` property.
+* `IReadOnlyRef<T>` now provides the `Notify()` method.
+* `IRef<T>` now provides the `SetValue(T value, bool supressNotification)` method.
+* The default ref implementation returned by `Ref(T)` locks/synchronizes while comparing the new value with
+  the old value and setting it.
+* Composition functions (`Computed`, `Watch`, `WatchEffect`) now all provide an `IScheduler` parameter
+  on which, if provided, the effect is scheduled.
+
+### Composed.Commands
+
+* Integrated the changes from the "Composed" package (removed `IDependency` references, provide scheduler, etc.).
+* Removed any `IComposedCommand` interfaces.
+* Removed any command related members with support for a generic `TParameter`.
+* Added the non-generic `ComposedCommand` class which replaces the interfaces.
+* Updated the `UseCommand` hooks to return `ComposedCommand` instances.
+
+### Composed.State
+
+Initial release.
+
+
+
+## v0.1.5
+
+### Composed
+
+* Added a `DebuggerTypeProxy` to any ref created by Composed.
+
+### Composed.Commands
+
+_No changes._
+
+
+
 ## v0.1.4
 
 ### Composed
 
 * Revert to publishing `.snupkg` files.
 
-## Composed.Commands
+### Composed.Commands
 
 * Revert to publishing `.snupkg` files.
 
@@ -19,7 +59,7 @@
 * Publish a deterministic NuGet package.
 * Include all files relevant for Source Link in the `.pdb`.
 
-## Composed.Commands
+### Composed.Commands
 
 * Publish a deterministic NuGet package.
 * Include all files relevant for Source Link in the `.pdb`.
@@ -32,7 +72,7 @@
 
 * `.pdb` files are now published within the `nupkg`.
 
-## Composed.Commands
+### Composed.Commands
 
 * `.pdb` files are now published within the `nupkg`.
 
@@ -44,7 +84,7 @@
 
 _No changes._
 
-## Composed.Commands
+### Composed.Commands
 
 * In v0.1.0 the symbols package has issues. With the new release, this is hopefully resolved.
 
