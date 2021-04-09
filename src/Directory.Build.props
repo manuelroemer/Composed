@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     
     <Product>Composed</Product>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <Authors>Manuel Römer</Authors>
     <NeutralLanguage>en</NeutralLanguage>
     <RepositoryType>git</RepositoryType>
