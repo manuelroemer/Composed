@@ -14,6 +14,7 @@ This package provides reactive ICommand implementations and hooks for creating t
 
 Frequently used members include:
 - ComposedCommand
+- AsyncComposedCommand
 - UseCommand(...)
     </Description>
   </PropertyGroup>
