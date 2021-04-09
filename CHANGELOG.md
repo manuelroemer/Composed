@@ -1,5 +1,24 @@
 # Composed Changelog
 
+# v0.2.1
+
+### Composed
+
+_No changes._
+
+### Composed.Commands
+
+* Added the `AsyncComposedCommand` class.
+* Added the `ComposedCommandBase` class.
+* Added new `UseCommand` overloads for creating `AsyncComposedCommand` instances.
+* Replaced `ExecuteAction` and `CanExecuteFunc` with `Action` and `Func<T>` equivalents.
+
+### Composed.State
+
+_No changes._
+
+
+
 ## v0.2.0
 
 ### Composed

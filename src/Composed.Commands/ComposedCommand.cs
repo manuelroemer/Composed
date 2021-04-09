@@ -4,86 +4,56 @@ namespace Composed.Commands
     using System.Reactive;
     using System.Reactive.Concurrency;
     using System.Windows.Input;
-    using Composed;
-    using static Composed.Compose;
 
     /// <summary>
     ///     A command implementation utilizing Composed's API.
     ///     You can create <see cref="ComposedCommand"/> instances via the
-    ///     <see cref="Compose.UseCommand(ExecuteAction)"/> overloads.
+    ///     <see cref="Compose.UseCommand(Action)"/> overloads.
     /// </summary>
     /// <remarks>
-    ///     This class implements the <see cref="ICommand"/> interface.
-    ///     Be aware that <see cref="ICommand.Execute(object)"/> invocations will throw an exception
-    ///     when the command cannot be executed at that point in time.
+    ///     <para>
+    ///         This class implements the <see cref="ICommand"/> interface.
+    ///         Be aware that <see cref="ICommand.Execute(object)"/> invocations will call the
+    ///         <see cref="Execute"/> method and can therefore throw.
+    ///     </para>
+    ///     <para>
+    ///         This class implements <see cref="IDisposable"/> and can thus be disposed.
+    ///         Once disposed, the command no longer watches the dependencies of
+    ///         <see cref="ComposedCommandBase.CanExecute"/> and cannot be executed again.
+    ///     </para>
     /// </remarks>
-    public sealed class ComposedCommand : ICommand
+    public sealed class ComposedCommand : ComposedCommandBase
     {
-        private readonly ExecuteAction _execute;
-        private readonly object _canExecuteChangedLock = new();
-        private EventHandler? _canExecuteChanged;
-
-        /// <inheritdoc/>
-        event EventHandler? ICommand.CanExecuteChanged
-        {
-            add
-            {
-                lock (_canExecuteChangedLock)
-                {
-                    _canExecuteChanged += value;
-                }
-            }
-            remove
-            {
-                lock (_canExecuteChangedLock)
-                {
-                    _canExecuteChanged -= value;
-                }
-            }
-        }
-
-        /// <summary>
-        ///     Gets a ref holding a value indicating whether the command can execute in its current state.
-        /// </summary>
-        public IReadOnlyRef<bool> CanExecute { get; }
+        private readonly Action _execute;
 
         internal ComposedCommand(
-            ExecuteAction execute,
-            CanExecuteFunc canExecute,
+            Action execute,
+            Func<bool> canExecute,
             IScheduler? scheduler,
             IObservable<Unit>[] dependencies
-        )
+        ) : base(canExecute, scheduler, dependencies)
         {
             _execute = execute;
-            CanExecute = Computed(() => canExecute(), scheduler, dependencies);
-            Watch(() => _canExecuteChanged?.Invoke(this, EventArgs.Empty), CanExecute);
         }
 
-        /// <inheritdoc/>
-        bool ICommand.CanExecute(object? parameter) =>
-            CanExecute.Value;
-
-        /// <inheritdoc/>
-        void ICommand.Execute(object? parameter) =>
+        private protected override void ICommandExecute() =>
             Execute();
 
         /// <summary>
-        ///     Executes the command if it can be executed; otherwise throws an exception.
+        ///     Executes the command if it can be executed; throws an exception otherwise.
         /// </summary>
         /// <exception cref="InvalidOperationException">
-        ///     The command cannot be executed because its last <see cref="CanExecute"/> value
+        ///     The command cannot be executed because its last <see cref="ComposedCommandBase.CanExecute"/> value
         ///     is <see langword="false"/>.
+        /// </exception>
+        /// <exception cref="ObjectDisposedException">
+        ///     The command cannot be executed because it has been disposed.
         /// </exception>
         public void Execute()
         {
             if (!TryExecute())
             {
-                throw new InvalidOperationException(
-                    $"Invalid command execution. The command was executed even though it cannot " +
-                    $"be executed in its current state. " +
-                    $"You can prevent this exception by preemptively checking whether the command can " +
-                    $"be executed or by using the \"{nameof(TryExecute)}\" method instead."
-                );
+                throw CreateExceptionForInvalidExecuteCall(nameof(TryExecute));
             }
         }
 
