@@ -11,6 +11,7 @@
     <RepositoryUrl>https://github.com/manuelroemer/Composed</RepositoryUrl>
     <PackageProjectUrl>https://github.com/manuelroemer/Composed</PackageProjectUrl>
     <PackageReleaseNotes>https://github.com/manuelroemer/Composed/blob/dev/CHANGELOG.md</PackageReleaseNotes>
+    <PackageTags>composed compose composition reactive rx observable hook mvvm</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Copyright>Copyright (c) 2021 Manuel Römer</Copyright>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
