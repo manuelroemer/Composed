@@ -1,6 +1,23 @@
 # Composed Changelog
 
-# v0.2.1
+## v0.2.2
+
+### Composed
+
+_No changes._
+
+### Composed.Commands
+
+* Added the `UseBlockingCommand` hooks which create commands that cannot be executed while already
+  executing at the moment.
+
+### Composed.State
+
+_No changes._
+
+
+
+## v0.2.1
 
 ### Composed
 
@@ -19,7 +36,7 @@ _No changes._
 
 
 
-## v0.2.0
+### v0.2.0
 
 ### Composed
 

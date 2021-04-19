@@ -5,6 +5,8 @@ namespace Composed.Commands
     using System.Reactive.Concurrency;
     using System.Threading;
     using System.Threading.Tasks;
+    using Composed;
+    using static Composed.Compose;
 
     /// <summary>
     ///     <para>
@@ -18,6 +20,8 @@ namespace Composed.Commands
     public static class Compose
     {
         private static readonly Func<bool> CanAlwaysExecute = () => true;
+
+        #region UseCommand Sync
 
         /// <summary>
         ///     Creates and returns a new <see cref="ComposedCommand"/> instance which can always
@@ -148,6 +152,10 @@ namespace Composed.Commands
             // dependencies is ANE validated in ComposedCommand's constructor via the Watch call.
             return new ComposedCommand(execute, canExecute, scheduler, dependencies);
         }
+
+        #endregion
+
+        #region UseCommand Async
 
         /// <inheritdoc cref="UseCommand(Func{CancellationToken, Task})"/>
         public static AsyncComposedCommand UseCommand(Func<Task> executeAsync)
@@ -307,6 +315,141 @@ namespace Composed.Commands
             _ = canExecute ?? throw new ArgumentNullException(nameof(canExecute));
             // dependencies is ANE validated in AsyncComposedCommand's constructor via the Watch call.
             return new AsyncComposedCommand(executeAsync, canExecute, scheduler, dependencies);
+        }
+
+        #endregion
+
+        #region UseBlockingCommand Sync
+
+        public static ComposedCommand UseBlockingCommand(Action execute)
+        {
+            return UseBlockingCommand(execute, CanAlwaysExecute, scheduler: null, Array.Empty<IObservable<Unit>>());
+        }
+
+        public static ComposedCommand UseBlockingCommand(
+            Action execute,
+            Func<bool> canExecute,
+            params IObservable<Unit>[] dependencies
+        )
+        {
+            return UseBlockingCommand(execute, canExecute, scheduler: null, dependencies);
+        }
+
+        public static ComposedCommand UseBlockingCommand(
+            Action execute,
+            Func<bool> canExecute,
+            IScheduler? scheduler,
+            params IObservable<Unit>[] dependencies
+        )
+        {
+            _ = canExecute ?? throw new ArgumentNullException(nameof(canExecute));
+            _ = execute ?? throw new ArgumentNullException(nameof(execute));
+            _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
+
+            var isExecuting = Ref(false);
+            return UseCommand(BlockingExecute, BlockingCanExecute, scheduler, PushDependency(dependencies, isExecuting));
+
+            bool BlockingCanExecute() =>
+                !isExecuting.Value && canExecute();
+
+            void BlockingExecute()
+            {
+                try
+                {
+                    isExecuting.Value = true;
+                    execute();
+                }
+                finally
+                {
+                    isExecuting.Value = false;
+                }
+            }
+        }
+
+        #endregion
+
+        #region UseBlockingCommand Async
+
+        public static AsyncComposedCommand UseBlockingCommand(Func<Task> executeAsync)
+        {
+            _ = executeAsync ?? throw new ArgumentNullException(nameof(executeAsync));
+            return UseBlockingCommand(_ => executeAsync());
+        }
+
+        public static AsyncComposedCommand UseBlockingCommand(Func<CancellationToken, Task> executeAsync)
+        {
+            return UseBlockingCommand(executeAsync, CanAlwaysExecute, scheduler: null, Array.Empty<IObservable<Unit>>());
+        }
+
+        public static AsyncComposedCommand UseBlockingCommand(
+           Func<Task> executeAsync,
+           Func<bool> canExecute,
+           params IObservable<Unit>[] dependencies
+        )
+        {
+            _ = executeAsync ?? throw new ArgumentNullException(nameof(executeAsync));
+            return UseBlockingCommand(_ => executeAsync(), canExecute, dependencies);
+        }
+
+        public static AsyncComposedCommand UseBlockingCommand(
+            Func<CancellationToken, Task> executeAsync,
+            Func<bool> canExecute,
+            params IObservable<Unit>[] dependencies
+        )
+        {
+            return UseBlockingCommand(executeAsync, canExecute, scheduler: null, dependencies);
+        }
+
+        public static AsyncComposedCommand UseBlockingCommand(
+            Func<Task> executeAsync,
+            Func<bool> canExecute,
+            IScheduler? scheduler,
+            params IObservable<Unit>[] dependencies
+        )
+        {
+            _ = executeAsync ?? throw new ArgumentNullException(nameof(executeAsync));
+            return UseBlockingCommand(_ => executeAsync(), canExecute, scheduler, dependencies);
+        }
+
+        public static AsyncComposedCommand UseBlockingCommand(
+            Func<CancellationToken, Task> executeAsync,
+            Func<bool> canExecute,
+            IScheduler? scheduler,
+            params IObservable<Unit>[] dependencies
+        )
+        {
+            _ = canExecute ?? throw new ArgumentNullException(nameof(canExecute));
+            _ = executeAsync ?? throw new ArgumentNullException(nameof(executeAsync));
+            _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
+
+            var isExecuting = Ref(false);
+            return UseCommand(BlockingExecute, BlockingCanExecute, scheduler, PushDependency(dependencies, isExecuting));
+
+            bool BlockingCanExecute() =>
+                !isExecuting.Value && canExecute();
+
+            async Task BlockingExecute(CancellationToken cancellationToken)
+            {
+                try
+                {
+                    isExecuting.Value = true;
+                    await executeAsync(cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    isExecuting.Value = false;
+                }
+            }
+        }
+
+        #endregion
+
+        private static IObservable<Unit>[] PushDependency(IObservable<Unit>[] dependencies, IObservable<Unit> next)
+        {
+            var result = new IObservable<Unit>[dependencies.Length + 1];
+            dependencies.CopyTo(result, 0);
+            result[result.Length - 1] = next;
+            return result;
         }
     }
 }
