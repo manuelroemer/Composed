@@ -4,7 +4,9 @@
 
 ### Composed
 
-_No changes._
+* Added the `ObservableExtensions` class exposing the following function:
+  * `AsDependency`: Converts an `IObservable<T>` to an `IObservable<Unit>`, allowing it to be passed
+    as a dependency.
 
 ### Composed.Commands
 
