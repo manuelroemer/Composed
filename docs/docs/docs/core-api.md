@@ -86,8 +86,8 @@ for you to do just that:
 ## The `Watch` Function
 
 `Watch` is the simplest of the three functions. It *watches* one or more refs (called the
-*dependencies*) and runs a callback function (called the *effect*) whenever one of the ref's
-values changes:
+*dependencies*) and runs a callback function (called the *effect*) whenever a dependency's
+value changes:
 
 ```csharp
 var count = Ref(0);
