@@ -16,7 +16,7 @@ Since this guide is using language features added with C# 9, you should have a .
 
 Create a new console application and install the [`Composed`](../packages/Composed/index.md) package:
 
-```console
+```shell
 dotnet new console
 dotnet add package Composed
 ```
