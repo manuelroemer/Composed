@@ -92,7 +92,7 @@ values changes:
 ```csharp
 var count = Ref(0);
 Watch(() => Console.WriteLine($"count: {count.Value}"), count);
-//    ^ This is the effect.                                        ^ This is a dependency.
+//    ^ This is the effect.                             ^ This is a dependency.
 
 count.Value = 1;
 count.Value = 2;
