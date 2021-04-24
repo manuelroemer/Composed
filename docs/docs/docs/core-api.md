@@ -91,15 +91,15 @@ values changes:
 
 ```csharp
 var count = Ref(0);
-Watch(() => Console.WriteLine($"count changed to: {count.Value}"), count);
+Watch(() => Console.WriteLine($"count: {count.Value}"), count);
 //    ^ This is the effect.                                        ^ This is a dependency.
 
 count.Value = 1;
 count.Value = 2;
 
 // Output:
-// count changed to: 1
-// count changed to: 2
+// count: 1
+// count: 2
 ```
 
 `Watch` accepts an arbitrary number of dependencies and will run the effect whenever one of them changes:
@@ -125,14 +125,14 @@ lastName.Value = "Roe";
 
 ```csharp
 var count = Ref(0);
-var subscription = Watch(() => Console.WriteLine($"count changed to: {count.Value}"), count);
+var subscription = Watch(() => Console.WriteLine($"count: {count.Value}"), count);
 
 count.Value = 1;
 subscription.Dispose();
 count.Value = 2;
 
 // Output:
-// count changed to: 1
+// count: 1
 ```
 
 :::important
@@ -150,15 +150,15 @@ Watch(async (cancellationToken) => {
   // (and does) change while waiting for `Task.Delay` to finish.
   var currentCount = count.Value;
   await Task.Delay(1000, cancellationToken);
-  Console.WriteLine("Count changed to {currentCount} one second ago.");
+  Console.WriteLine("count {currentCount} one second ago.");
 }, count);
 
 count.Value = 1;
 count.Value = 2;
 
 // Output:
-// Count changed to 1 one second ago.
-// Count changed to 2 one second ago.
+// count 1 one second ago.
+// count 2 one second ago.
 ```
 
 
@@ -170,15 +170,15 @@ runs the effect immediately when called:
 
 ```csharp
 var count = Ref(0);
-WatchEffect(() => Console.WriteLine($"count is: {count.Value}"), count);
+WatchEffect(() => Console.WriteLine($"count: {count.Value}"), count);
 
 count.Value = 1;
 count.Value = 2;
 
 // Output:
-// count is: 0
-// count is: 1
-// count is: 2
+// count: 0
+// count: 1
+// count: 2
 ```
 
 Apart from this difference, the two functions do exactly the same. `WatchEffect` also supports an
