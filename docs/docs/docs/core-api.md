@@ -7,12 +7,13 @@ id: core-api
 (tbd)
 
 
-## Requirements
-
-Since this guide is using language features added with C# 9, you should have a .NET SDK >= 5 installed.
-
-
 ## Scaffolding the Project
+
+:::note
+This guide assumes that you are at least using .NET 5 with C# 9.
+You *can* use any .NET runtime supporting .NET Standard 2.0, but you may have to manually adapt the
+code to the lower language version.
+:::
 
 If you want to run the code examples of the following sections, you can create a new console
 application and install the [`Composed`](../packages/Composed/index.md) package:
@@ -74,8 +75,8 @@ As you can see in the interface declaration above, `IRef<T>` implements `INotify
 `IObservable<Unit>`. Whenever a ref's `Value` property changes, its `PropertyChanged` event is raised
 and a new change notification is dispatched to observers.
 This makes refs **reactive** and consequently enables you and others to **react** to value changes.
-As a practical example, UI frameworks like WPF can directly create UI bindings to refs and thus
-automatically update the UI when a ref's value changes.
+As a practical example, UI frameworks like WPF can directly bind to refs and thus automatically
+update the UI when a ref's value changes.
 
 You yourself can also react to value changes of a ref. Composed provides three different functions
 for you to do just that:
