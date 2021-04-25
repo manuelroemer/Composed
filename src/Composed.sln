@@ -9,7 +9,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".Config", ".Config", "{1B6B
 		Default.ruleset = Default.ruleset
 		Directory.Build.props = Directory.Build.props
 		global.json = global.json
-		key.snk = key.snk
 		nuget.config = nuget.config
 		Tests.ruleset = Tests.ruleset
 	EndProjectSection
