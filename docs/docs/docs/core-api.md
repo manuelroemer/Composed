@@ -14,20 +14,23 @@ Since this guide is using language features added with C# 9, you should have a .
 
 ## Scaffolding the Project
 
-Create a new console application and install the [`Composed`](../packages/Composed/index.md) package:
+If you want to run the code examples of the following sections, you can create a new console
+application and install the [`Composed`](../packages/Composed/index.md) package:
 
 ```shell
 dotnet new console
 dotnet add package Composed
 ```
 
-Next, change the contents of your `Program.cs` file to the following code:
+Next, change the contents of your `Program.cs` file to the following code and run the program
+to ensure that everything works as expected:
 
 
 ```csharp
 using System;
 using Composed;
 using static Composed.Compose;
+// Note: The above using directives are required for the code examples below.
 
 IRef<string> message = Ref("Hello World!");
 Console.WriteLine(message.Value);
@@ -36,9 +39,8 @@ Console.WriteLine(message.Value);
 // Hello World!
 ```
 
-:::note
-The following code examples assume that you have the above's `using` directives in place.
-:::
+The above example already shows the central part of Composed: The `IRef<T>`.
+The following sections show what refs are and what they are used for.
 
 
 ## Refs
