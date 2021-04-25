@@ -150,15 +150,15 @@ Watch(async (cancellationToken) => {
   // (and does) change while waiting for `Task.Delay` to finish.
   var currentCount = count.Value;
   await Task.Delay(1000, cancellationToken);
-  Console.WriteLine("count {currentCount} one second ago.");
+  Console.WriteLine("count was {currentCount} one second ago.");
 }, count);
 
 count.Value = 1;
 count.Value = 2;
 
 // Output:
-// count 1 one second ago.
-// count 2 one second ago.
+// count was 1 one second ago.
+// count was 2 one second ago.
 ```
 
 
