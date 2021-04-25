@@ -184,3 +184,47 @@ count.Value = 2;
 Apart from this difference, the two functions do exactly the same. `WatchEffect` also supports an
 arbitrary number of dependencies, allows asynchronous effects and returns a disposer for the
 subscription.
+
+
+## The `Computed` Function
+
+`Computed` is a function which *computes* a new ref based on a set of dependencies.
+This is best demonstrated with an example:
+
+```csharp
+var count = Ref(0);
+var doubleCount = Computed(() => count.Value * 2, count);
+
+count.Value = 1;
+Console.WriteLine($"doubleCount: {doubleCount.Value}");
+
+count.Value = 2;
+Console.WriteLine($"doubleCount: {doubleCount.Value}");
+
+// Output:
+// doubleCount: 2
+// doubleCount: 4
+```
+
+`Computed` is therefore similar to `WatchEffect` in the sense that it accepts an arbitrary number
+of dependencies and runs the computation callback both initially and whenever one of these
+dependencies changes.
+
+As mentioned above, `Computed` also returns a ref which can be passed as a dependency to the
+`Watch`/`WatchEffect`/`Computed` functions. One important aspect is that the returned ref is
+readonly, i.e. it's value cannot be changed:
+
+```csharp
+// `Computed` returns a readonly ref which implements the following
+// (simplified) interface:
+interface IReadOnlyRef<T> : INotifyPropertyChanged, IObservable<Unit> {
+  T Value { get; }
+}
+
+// The following code would therefore result in a compilation error:
+IRef<int> count = Ref(0);
+IReadOnlyRef<int> doubleCount = Computed(() => count.Value * 2, count);
+
+count.Value = 1;       // Works. An IRef<T>'s value can be changed.
+doubleCount.Value = 2; // Error. An IReadOnlyRef<T>'s value cannot be changed.
+```
