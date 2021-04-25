@@ -5,8 +5,6 @@ VisualStudioVersion = 16.0.30428.66
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".Config", ".Config", "{1B6BD004-E02E-4771-ADF1-921D05CF31EC}"
 	ProjectSection(SolutionItems) = preProject
-		..\.editorconfig = ..\.editorconfig
-		..\.gitignore = ..\.gitignore
 		..\CHANGELOG.md = ..\CHANGELOG.md
 		Default.ruleset = Default.ruleset
 		Directory.Build.props = Directory.Build.props
@@ -32,7 +30,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Composed.State", "Composed.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Composed.State", "Composed.State\Composed.State.csproj", "{CCB6799C-3FA8-48FD-BF45-FA606EE377E7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Composed.State.Tests", "Composed.State.Tests\Composed.State.Tests.csproj", "{5DF24AB3-FC4D-4CC1-96E4-D39CA88F91FC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Composed.State.Tests", "Composed.State.Tests\Composed.State.Tests.csproj", "{5DF24AB3-FC4D-4CC1-96E4-D39CA88F91FC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
