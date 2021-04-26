@@ -1,5 +1,5 @@
 ---
-id: core-api
+id: getting-started-core-api
 ---
 
 # Composed's Core API

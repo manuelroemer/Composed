@@ -1,10 +1,25 @@
 ---
-id: viewmodel
+id: getting-started-viewmodel
 ---
 
-# Using Composed for ViewModels
+# Composed ViewModels
 
-(tbd)
+Now that you have an overview over [Composed's Core API](./core-api.md), it is time to tackle
+the topic that Composed has actually been built for: UIs.
+
+This guide will show you how you can leverage Composed to easily build reactive view models.
+It will also introduce you to the [Composed.Commands](../packages/Composed.Commands/index.md)
+package which can be incredibly useful for UI frameworks like WPF or WinUI.
+
+The final result of this guide will look like this:
+
+
+:::note
+This guide presents Composed in the context of a WPF application using an MVVM-like architecture.
+It should be noted that the concepts presented here can also be applied to other environments.
+[Composed's base package](../packages/Composed/index.md) is entirely independent of any UI framework
+or architecture and **does not** force you to use an MVVM approach at all.
+:::
 
 
 ## Scaffolding the Project

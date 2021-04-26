@@ -5,7 +5,7 @@ module.exports = {
     {
       type: 'category',
       label: 'Getting Started',
-      items: ['docs/core-api', 'docs/viewmodel'],
+      items: ['docs/getting-started-core-api', 'docs/getting-started-viewmodel'],
       collapsed: false,
     },
   ],
