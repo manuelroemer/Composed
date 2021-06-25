@@ -17,7 +17,7 @@
 
 ### Composed.State
 
-_No changes._
+* Renamed `UseState` to `UseStore`.
 
 
 

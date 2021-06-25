@@ -49,9 +49,9 @@ namespace Composed.State
         ///     <paramref name="store"/> or <paramref name="stateSelector"/> is <see langword="null"/>.
         /// </exception>
         /// <seealso cref="Computed{TResult}(Func{TResult}, IObservable{Unit}[])"/>
-        public static IReadOnlyRef<T> UseState<TState, T>(Store<TState> store, Func<TState, T> stateSelector)
+        public static IReadOnlyRef<T> UseStore<TState, T>(Store<TState> store, Func<TState, T> stateSelector)
         {
-            return UseState(store, stateSelector, equalityComparer: null, scheduler: null);
+            return UseStore(store, stateSelector, equalityComparer: null, scheduler: null);
         }
 
         /// <summary>
@@ -99,13 +99,13 @@ namespace Composed.State
         ///     <paramref name="store"/> or <paramref name="stateSelector"/> is <see langword="null"/>.
         /// </exception>
         /// <seealso cref="Computed{TResult}(Func{TResult}, IScheduler?, IObservable{Unit}[])"/>
-        public static IReadOnlyRef<T> UseState<TState, T>(
+        public static IReadOnlyRef<T> UseStore<TState, T>(
             Store<TState> store,
             Func<TState, T> stateSelector,
             IScheduler? scheduler
         )
         {
-            return UseState(store, stateSelector, equalityComparer: null, scheduler);
+            return UseStore(store, stateSelector, equalityComparer: null, scheduler);
         }
 
         /// <summary>
@@ -156,13 +156,13 @@ namespace Composed.State
         ///     <paramref name="store"/> or <paramref name="stateSelector"/> is <see langword="null"/>.
         /// </exception>
         /// <seealso cref="Computed{TResult}(Func{TResult}, IEqualityComparer{TResult}?, IObservable{Unit}[])"/>
-        public static IReadOnlyRef<T> UseState<TState, T>(
+        public static IReadOnlyRef<T> UseStore<TState, T>(
             Store<TState> store,
             Func<TState, T> stateSelector,
             IEqualityComparer<T>? equalityComparer
         )
         {
-            return UseState(store, stateSelector, equalityComparer, scheduler: null);
+            return UseStore(store, stateSelector, equalityComparer, scheduler: null);
         }
 
         /// <summary>
@@ -223,7 +223,7 @@ namespace Composed.State
         ///     <paramref name="store"/> or <paramref name="stateSelector"/> is <see langword="null"/>.
         /// </exception>
         /// <seealso cref="Computed{TResult}(Func{TResult}, IEqualityComparer{TResult}?, IScheduler?, IObservable{Unit}[])"/>
-        public static IReadOnlyRef<T> UseState<TState, T>(
+        public static IReadOnlyRef<T> UseStore<TState, T>(
             Store<TState> store,
             Func<TState, T> stateSelector,
             IEqualityComparer<T>? equalityComparer,

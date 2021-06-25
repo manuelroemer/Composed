@@ -22,7 +22,7 @@ namespace Composed.State
     ///                 <description>
     ///                     Because <see cref="State"/> is a ref, you can fully utilize Composed's API to
     ///                     interact with it.
-    ///                     <see cref="Compose.UseState{TState, T}(Store{TState}, Func{TState, T})"/>
+    ///                     <see cref="Compose.UseStore{TState, T}(Store{TState}, Func{TState, T})"/>
     ///                     is the recommended way to <i>select</i> a property from the store's state.
     ///                 </description>
     ///             </item>
