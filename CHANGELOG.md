@@ -1,6 +1,27 @@
 # Composed Changelog
 
-# v0.2.1
+
+## v0.2.2
+
+### Composed
+
+* Added the `ObservableExtensions` class exposing:
+  * `AsDependency`: Converts an `IObservable<T>` to an `IObservable<Unit>`, allowing it to be passed
+    as a dependency.
+
+### Composed.Commands
+
+* Added the `UseBlockingCommand` hooks which create commands that cannot be executed while already
+  executing at the moment.
+* Suppress `CanExecute` change notifications during the `Dispose` flow.
+
+### Composed.State
+
+* Renamed `UseState` to `UseStore`.
+
+
+
+## v0.2.1
 
 ### Composed
 
@@ -19,7 +40,7 @@ _No changes._
 
 
 
-## v0.2.0
+### v0.2.0
 
 ### Composed
 

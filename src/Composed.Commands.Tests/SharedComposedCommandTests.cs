@@ -95,5 +95,17 @@ namespace Composed.Commands.Tests
 
             executeMock.Verify(fn => fn(), Times.Never());
         }
+
+        [Fact]
+        public void CanExecute_OnDisposal_DoesNotNotify()
+        {
+            var command = CreateCommand(() => { }, canExecute: () => true);
+            var notifyMock = new Mock<Action>();
+            Watch(notifyMock.Object, command.CanExecute);
+
+            command.Dispose();
+
+            notifyMock.Verify(fn => fn(), Times.Never());
+        }
     }
 }

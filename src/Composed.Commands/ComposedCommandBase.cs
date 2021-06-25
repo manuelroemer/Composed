@@ -92,7 +92,19 @@ namespace Composed.Commands
                 if (disposing)
                 {
                     _canExecuteSubscription.Dispose();
-                    _canExecute.Value = false;
+                    _canExecute.SetValue(false, suppressNotification: true);
+                    // Reason for suppressing the notification above:
+                    // Having the change notification in place caused issues in apps which disposed
+                    // commands during shutdown. The notification caused a binding to update
+                    // despite the Dispatcher no longer being available. This caused an exception.
+                    //
+                    // This may not be the best reason, but it is justified.
+                    // Disposing a command essentially leaves it in limbo anyway, i.e. you should
+                    // not use it afterwards (and accessing CanExecute *is* a form of using it).
+                    // Not providing any functionality post disposal is acceptable.
+                    //
+                    // With that being said, if anybody who reads this requires this to change,
+                    // feel free to start a discussion. :)
                 }
 
                 IsDisposed = true;
