@@ -1,5 +1,6 @@
 # Composed Changelog
 
+
 ## v0.2.2
 
 ### Composed
@@ -12,6 +13,7 @@
 
 * Added the `UseBlockingCommand` hooks which create commands that cannot be executed while already
   executing at the moment.
+* Suppress `CanExecute` change notifications during the `Dispose` flow.
 
 ### Composed.State
 
