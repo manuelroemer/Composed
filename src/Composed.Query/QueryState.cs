@@ -1,6 +1,7 @@
 namespace Composed.Query
 {
     using System;
+    using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
 
     /// <summary>
@@ -101,6 +102,12 @@ namespace Composed.Query
 
         internal QueryState(QueryKey? key, QueryStatus status, T? data, Exception? error)
         {
+            Debug.Assert(
+                key is null
+                    ? status == QueryStatus.Disabled
+                    : status != QueryStatus.Disabled
+            );
+
             Key = key;
             Status = status;
             Data = data;
