@@ -7,22 +7,6 @@ namespace Composed.Query
     using Composed.Query.Internal;
     using static Composed.Compose;
 
-    internal sealed record QueryState(
-        QueryKey? Key,
-        UnifiedQuery? UnifiedQuery,
-        bool IsLoading,
-        bool IsFetching,
-        object? Data,
-        Exception? Error
-    )
-    {
-        public static readonly QueryState Disabled = new(null, null, false, false, null, null);
-
-        [MemberNotNullWhen(false, nameof(Key))]
-        [MemberNotNullWhen(false, nameof(UnifiedQuery))]
-        public bool IsDisabled => Key is null && UnifiedQuery is null;
-    }
-
     /// <summary>
     ///     Represents a query which fetches arbitrary data of type <typeparamref name="T"/>
     ///     and provides details about its lifecycle.
@@ -30,14 +14,16 @@ namespace Composed.Query
     /// <typeparam name="T">
     ///     The type of the data returned by the query.
     /// </typeparam>
-    public class Query : IDisposable
+    public abstract class Query : IDisposable
     {
         private readonly object _lock = new();
         private readonly QueryClient _client;
         private readonly QueryFunction _queryFunction;
         private readonly IRef<QueryState> _state;
+        private UnifiedQuery? _unifiedQuery;
         private IDisposable? _watchDependenciesSubscription;
         private IDisposable? _watchUnifiedQuerySubscription;
+        private bool _isDisposed;
 
         /// <summary>
         ///     Gets the <see cref="QueryClient"/> with which the query is associated.
@@ -45,107 +31,79 @@ namespace Composed.Query
         public QueryClient Client => _client;
 
         /// <summary>
-        ///     Gets the <see cref="QueryKey"/> which uniquely identifies this query.
+        ///     Gets the current state of the query.
         /// </summary>
-        public IReadOnlyRef<QueryKey?> Key { get; }
+        public IReadOnlyRef<QueryState> State => _state;
 
-        /// <summary>
-        ///     Gets a value indicating whether the query is currently disabled.
-        ///     Disabled queries do not have a key and generally don't perform any kind of actions.
-        /// </summary>
-        /// <remarks>
-        ///     There are two ways for a query to end up disabled:
-        ///
-        ///     <list type="number">
-        ///         <item>
-        ///             <description>
-        ///                 The query gets disposed.
-        ///             </description>
-        ///         </item>
-        ///         <item>
-        ///             <description>
-        ///                 The query was created using a <see cref="QueryKeyProvider"/> function
-        ///                 which either returned <see langword="null"/> as the <see cref="QueryKey"/>
-        ///                 or threw an exception.
-        ///                 Either way, this resulted in the query not having a key which effectively
-        ///                 disables it.
-        ///                 Queries disabled this way are automatically enabled when the
-        ///                 <see cref="QueryKeyProvider"/> returns a valid key.
-        ///             </description>
-        ///         </item>
-        ///     </list>
-        /// </remarks>
-        public IReadOnlyRef<bool> IsDisabled { get; }
-
-        /// <summary>
-        ///     Gets a value indicating whether the query is loading the <i>initial</i> data at the moment.
-        ///     If this is <see langword="true"/>, the query cannot provide any data at the moment.
-        /// </summary>
-        public IReadOnlyRef<bool> IsLoading { get; }
-
-        /// <summary>
-        ///     Gets a value indicating whether the query is fetching data at the moment.
-        /// </summary>
-        public IReadOnlyRef<bool> IsFetching { get; }
-
-        /// <summary>
-        ///     If the query sucessfully fetched data, gets that fetched data.
-        ///     If the query hasn't fetched any data yet, this is the default value of <typeparamref name="T"/>
-        ///     (typically <see langword="null"/>).
-        /// </summary>
-        public IReadOnlyRef<object?> Data { get; }
-
-        /// <summary>
-        ///     If the query threw an exception instead of completing successfully, gets that thrown exception.
-        ///     Otherwise, this is <see langword="null"/>.
-        /// </summary>
-        public IReadOnlyRef<Exception?> Error { get; }
-
-        internal Query(
+        private protected Query(
             QueryClient client,
             QueryKeyProvider getKey,
             QueryFunction queryFunction,
-            IObservable<Unit>[] dependencies
+            IObservable<Unit>[] dependencies,
+            QueryState initialQueryState
         )
         {
             _client = client;
             _queryFunction = queryFunction;
-            _state = Ref(QueryState.Disabled);
+            _state = Ref(initialQueryState);
 
-            Key = Computed(() => _state.Value.Key, _state);
-            IsDisabled = Computed(() => _state.Value.IsDisabled, _state);
-            IsLoading = Computed(() => _state.Value.IsLoading, _state);
-            IsFetching = Computed(() => _state.Value.IsFetching, _state);
-            Data = Computed(() => _state.Value.Data, _state);
-            Error = Computed(() => _state.Value.Error, _state);
-            
-            _watchDependenciesSubscription = WatchEffect(() =>
+            _watchDependenciesSubscription = UseQueryKeyChangedHandler(getKey, dependencies);
+        }
+
+        private IDisposable UseQueryKeyChangedHandler(QueryKeyProvider getKey, IObservable<Unit>[] dependencies) =>
+            WatchEffect(() =>
             {
-                var key = GetQueryKeyUsingProviderFn(getKey);
+                var newKey = GetQueryKeyUsingProviderFn(getKey);
+                var notify = false;
 
                 lock (_lock)
                 {
-                    if (key == _state.Value.Key)
+                    // Disposal race condition:
+                    // Since this is a callback we can end up here post disposal.
+                    if (_isDisposed)
                     {
                         return;
                     }
+
+                    // If the key didn't change there is no need to do any work as the query is already either:
+                    // 1) disabled or
+                    // 2) using the correct unified query.
+                    if (newKey == _state.Value.Key)
+                    {
+                        return;
+                    }
+
+                    if (newKey is null)
+                    {
+                        // No valid key means that the query will be disabled.
+                        UnsubscribeFromCurrentUnifiedQuery();
+                        notify = _state.SetValue(_state.Value.WithDisabled(), suppressNotification: true);
+                    }
+                    else
+                    {
+                        // A valid key means that the query is enabled (but the key may have changed).
+                        // A new key means that we must find a new unified query and synchronize the
+                        // new initial query state to the current state of that unified query.
+                        // Since this query subscribed to the unified query it will receive any
+                        // data updates from now on.
+                        SubscribeToNewUnifiedQuery(newKey);
+
+                        var uqState = _unifiedQuery.CurrentState;
+                        var newState = _state.Value.WithNewlyEnabled(newKey, uqState);
+                        notify = _state.SetValue(newState, suppressNotification: true);
+                    }
                 }
 
-                if (key is not null)
+                if (notify)
                 {
-                    Reset(key);
-                }
-                else
-                {
-                    Disable();
+                    _state.Notify();
                 }
             }, dependencies);
-        }
 
         private static QueryKey? GetQueryKeyUsingProviderFn(QueryKeyProvider provider)
         {
-            // We generally allow the query key provider functions to throw;
-            // this is inspired by SWR and actually leads to a much better user experience
+            // We generally allow the query key provider functions to throw.
+            // This is inspired by SWR and actually leads to a much better user experience
             // because you can entirely disregard things like null checks for missing data.
             try
             {
@@ -157,78 +115,95 @@ namespace Composed.Query
             }
         }
 
-        private void Reset(QueryKey key)
+        [MemberNotNull(nameof(_unifiedQuery))]
+        [MemberNotNull(nameof(_watchUnifiedQuerySubscription))]
+        private void SubscribeToNewUnifiedQuery(QueryKey key)
         {
             UnsubscribeFromCurrentUnifiedQuery();
 
-            var unifiedQueryCache = _client.UnifiedQueryCache;
-            var unifiedQuery = unifiedQueryCache.GetOrAdd(key, _queryFunction);
+            var cache = _client.UnifiedQueryCache;
+            var unifiedQuery = cache.GetOrAdd(key, _queryFunction);
 
-            _watchUnifiedQuerySubscription = WatchEffect(() =>
-            {
-                var uqState = unifiedQuery.State.Value;
+            // Trigger the refetch before subscribing to the data so that we don't immediately receive
+            // an "IsFetching" state change event and instead begin in the "IsFetching" state.
+            unifiedQuery.Refetch();
 
-                SetState(state => state with
-                {
-                    Key = key,
-                    UnifiedQuery = unifiedQuery,
-                    IsLoading = uqState.IsLoading,
-                    IsFetching = uqState.IsFetching,
-                    Data = uqState.LastData,
-                    Error = uqState.LastError,
-                });
-            }, unifiedQuery.State);
-
-            Refetch();
-        }
-
-        private void Disable()
-        {
-            UnsubscribeFromCurrentUnifiedQuery();
-            SetState(QueryState.Disabled);
+            _unifiedQuery = unifiedQuery;
+            _watchUnifiedQuerySubscription = unifiedQuery.Subscribe(OnUnifiedQueryStateChanged);
         }
 
         private void UnsubscribeFromCurrentUnifiedQuery()
         {
+            _unifiedQuery = null;
             _watchUnifiedQuerySubscription?.Dispose();
             _watchUnifiedQuerySubscription = null;
         }
 
-        public void Refetch()
+        private void OnUnifiedQueryStateChanged(UnifiedQueryState uqState)
         {
-            lock (_lock)
-            {
-                if (!_state.Value.IsDisabled)
-                {
-                    _state.Value.UnifiedQuery.Refetch();
-                }
-            }
+            SetState(state => state.WithUnifiedQueryStateUpdate(uqState));
         }
 
-#pragma warning disable CA1063 // IDisposable is only implemented in this base class. Query can furthermore only be
-#pragma warning disable CA1816 // extended in this package. There's no need for the full ceremony.
+        public void Refetch()
+        {
+            _unifiedQuery?.Refetch();
+        }
+
         /// <summary>
         ///     Disposes any resources used by <i>this specific</i> <see cref="Query"/> instance
         ///     and disposes any subscriptions made by this query.
         ///     After disposal, the query will forever remain in a disabled state.
         /// </summary>
         public void Dispose()
-#pragma warning restore CA1816
-#pragma warning restore CA1063
         {
-            _watchDependenciesSubscription?.Dispose();
-            _watchDependenciesSubscription = null;
-            Disable();
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
 
-        private void SetState(QueryState state) =>
-            SetState(_ => state);
-
-        private void SetState(Func<QueryState, QueryState> set)
+        /// <inheritdoc cref="Dispose()"/>
+        /// <param name="disposing">Whether managed objects should be disposed.</param>
+        protected virtual void Dispose(bool disposing)
         {
             lock (_lock)
             {
-                _state.Value = set(_state.Value);
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                if (disposing)
+                {
+                    _watchDependenciesSubscription?.Dispose();
+                    _watchDependenciesSubscription = null;
+                    UnsubscribeFromCurrentUnifiedQuery();
+                }
+
+                // Important: Set the state to disabled *after* the disposal flag is set.
+                // This prevents subsequent asynchronous state updates from currently executing subscription handlers.
+                _isDisposed = true;
+                _state.SetValue(_state.Value.WithDisabled(), suppressNotification: true);
+            }
+        }
+
+        private void SetState(Func<QueryState, QueryState> set)
+        {
+            var notify = false;
+
+            lock (_lock)
+            {
+                // Disposal race condition:
+                // Since this can be invoked from callbacks we can end up here post disposal.
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                notify = _state.SetValue(set(_state.Value), suppressNotification: true);
+            }
+
+            if (notify)
+            {
+                _state.Notify();
             }
         }
     }

@@ -1,7 +1,6 @@
 namespace Composed.Query
 {
     using System;
-    using System.Collections.Generic;
     using System.Linq;
     using System.Reactive;
     using Composed.Query.Internal;
@@ -31,8 +30,7 @@ namespace Composed.Query
         )
         {
             _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
-            var refDependencies = dependencies.SelectMany(query =>
-                new IObservable<Unit>[] { query.Data, query.Error });
+            var refDependencies = dependencies.Select(q => q.State);
             return CreateQuery(getKey, queryFunction, refDependencies.ToArray());
         }
 

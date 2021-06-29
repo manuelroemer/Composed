@@ -1,4 +1,4 @@
-namespace Composed.Query.Tests
+namespace Composed.Query.Tests.Utilities
 {
     using System;
     using System.Threading.Tasks;

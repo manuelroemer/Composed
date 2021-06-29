@@ -1,7 +1,10 @@
 namespace Composed.Query.Internal
 {
     using System;
+    using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
+    using System.Reactive.Disposables;
+    using System.Threading;
     using System.Threading.Tasks;
     using Composed;
     using static Composed.Compose;
@@ -13,8 +16,12 @@ namespace Composed.Query.Internal
         Task? FetchingTask
     )
     {
-        [MemberNotNullWhen(true, nameof(FetchingTask))]
-        public bool IsFetching => FetchingTask is not null;
+        public QueryStatus Status =>
+            IsLoading
+                ? QueryStatus.Loading
+                : FetchingTask is not null
+                    ? QueryStatus.Fetching
+                    : QueryStatus.Idle;
     }
 
     internal sealed class UnifiedQuery
@@ -22,8 +29,9 @@ namespace Composed.Query.Internal
         private readonly object _lock = new();
         private readonly QueryFunction _queryFunction;
         private readonly IRef<UnifiedQueryState> _state;
+        private int _activeSubscriptions;
 
-        public IReadOnlyRef<UnifiedQueryState> State => _state;
+        public UnifiedQueryState CurrentState => _state.Value;
 
         public UnifiedQuery(QueryFunction queryFunction)
         {
@@ -77,14 +85,18 @@ namespace Composed.Query.Internal
             }
         }
 
-        public void RegisterDependentQuery()
+        public IDisposable Subscribe(Action<UnifiedQueryState> onStateChanged)
         {
+            var subscription = Watch(() => onStateChanged(_state.Value), _state);
+            var unsubscribe = Disposable.Create(() =>
+            {
+                subscription.Dispose();
+                Interlocked.Decrement(ref _activeSubscriptions);
+                Debug.Assert(_activeSubscriptions >= 0, "The active subscriptions should never fall below 0.");
+            });
 
-        }
-
-        public void UnregisterDependentQuery()
-        {
-
+            Interlocked.Increment(ref _activeSubscriptions);
+            return unsubscribe;
         }
     }
 }
