@@ -4,6 +4,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Composed\Composed.csproj" />
+    <ProjectReference Include="..\Composed.Query\Composed.Query.csproj" />
   </ItemGroup>
 </Project>

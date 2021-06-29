@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>
+      netstandard2.0;
+      netstandard2.1;
+      net5.0
+    </TargetFrameworks>
+    <IsPackable>true</IsPackable>
+    <Description>
+      Composed is a set of independent libraries providing simple and yet flexible APIs for easily building
+      reactive applications with a strong, but not exclusive, focus on GUI and MVVM based applications.
+
+      This package provides members for easily dispatching and managing asynchronous queries to arbitrary
+      data sources.
+
+      Frequently used members include:
+      - Query&lt;T&gt;
+      - QueryClient
+    </Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="IsExternalInit" Version="*" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Bcl.HashCode" Version="1.1.1" />
+    <ProjectReference Include="..\Composed\Composed.csproj" />
+  </ItemGroup>
+</Project>
