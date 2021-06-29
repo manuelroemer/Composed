@@ -3,8 +3,6 @@ namespace Composed.Query.Tests
     using System;
     using System.Threading.Tasks;
     using Composed.Query.Tests.Utilities;
-    using Moq;
-    using Shouldly;
     using Xunit;
 
     public class QueryTests
@@ -31,8 +29,8 @@ namespace Composed.Query.Tests
             var client = new QueryClient();
             using var query = client.CreateQuery(queryKeyProvider, controller.Function);
 
-            query.ShouldBeLoading(expectedKey: queryKeyProvider()!);
-            controller.FunctionMock.Verify(fn => fn(), Times.Once());
+            query.ShouldBeLoading(key: queryKeyProvider()!);
+            controller.Verify(1);
         }
 
         [Theory]
@@ -44,7 +42,7 @@ namespace Composed.Query.Tests
             using var query = client.CreateQuery(queryKeyProvider, controller.Function);
 
             query.ShouldBeDisabled();
-            controller.FunctionMock.Verify(fn => fn(), Times.Never());
+            controller.Verify(0);
         }
 
         [Fact]
@@ -54,14 +52,24 @@ namespace Composed.Query.Tests
             var client = new QueryClient();
             using var query = client.CreateQuery(GetKey(), controller.Function);
 
-            query.ShouldBeLoading(expectedKey: GetKey());
-            controller.FunctionMock.Verify(fn => fn(), Times.Once());
+            query.ShouldBeLoading(key: GetKey());
+            controller.Verify(1);
 
-            controller.Return(123);
-            await query.State.WaitNext();
+            await controller.ReturnAndWaitForStateChange(query, 123);
 
-            query.ShouldBeIdle(expectedKey: GetKey(), expectedData: 123, expectedError: null);
-            controller.FunctionMock.Verify(fn => fn(), Times.Once());
+            query.ShouldBeIdle(key: GetKey(), data: 123, error: null);
+            controller.Verify(1);
+
+            controller.Reset();
+            query.Refetch();
+
+            query.ShouldBeFetching(key: GetKey(), data: 123, error: null);
+            controller.Verify(2);
+
+            await controller.ReturnAndWaitForStateChange(query, 456);
+
+            query.ShouldBeIdle(key: GetKey(), data: 456, error: null);
+            controller.Verify(2);
         }
     }
 }

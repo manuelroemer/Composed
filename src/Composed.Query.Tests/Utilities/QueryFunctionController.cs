@@ -19,6 +19,20 @@ namespace Composed.Query.Tests.Utilities
             FunctionMock.Setup(fn => fn()).Returns(() => _tcs.Task);
         }
 
+        public Task ReturnAndWaitForStateChange(Query<T> query, T result = default!, int timeoutMs = 5000)
+        {
+            var task = query.State.WaitNext(timeoutMs);
+            Return(result);
+            return task;
+        }
+
+        public Task ThrowAndWaitForStateChange(Query<T> query, Exception? ex = default!, int timeoutMs = 5000)
+        {
+            var task = query.State.WaitNext(timeoutMs);
+            Throw(ex);
+            return task;
+        }
+
         public void Return(T result = default!) =>
             _tcs.SetResult(result);
 
@@ -30,5 +44,8 @@ namespace Composed.Query.Tests.Utilities
             _tcs.TrySetCanceled();
             _tcs = new TaskCompletionSource<T>();
         }
+
+        public void Verify(int queryFunctionCallCount) =>
+            FunctionMock.Verify(fn => fn(), Times.Exactly(queryFunctionCallCount));
     }
 }

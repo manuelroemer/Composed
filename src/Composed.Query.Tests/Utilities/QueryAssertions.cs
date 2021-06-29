@@ -14,31 +14,31 @@ namespace Composed.Query.Tests.Utilities
             state.Error.ShouldBeNull();
         }
 
-        public static void ShouldBeLoading<T>(this Query<T> query, QueryKey expectedKey)
+        public static void ShouldBeLoading<T>(this Query<T> query, QueryKey key)
         {
             var state = query.State.Value;
-            state.Key.ShouldBe(expectedKey);
+            state.Key.ShouldBe(key);
             state.Status.ShouldBe(QueryStatus.Loading);
             state.Data.ShouldBe(default);
             state.Error.ShouldBeNull();
         }
 
-        public static void ShouldBeFetching<T>(this Query<T> query, QueryKey expectedKey, object? expectedData, Exception? expectedError)
+        public static void ShouldBeFetching<T>(this Query<T> query, QueryKey key, object? data, Exception? error)
         {
             var state = query.State.Value;
-            state.Key.ShouldBe(expectedKey);
+            state.Key.ShouldBe(key);
             state.Status.ShouldBe(QueryStatus.Fetching);
-            state.Data.ShouldBe(expectedData);
-            state.Error.ShouldBe(expectedError);
+            state.Data.ShouldBe(data);
+            state.Error.ShouldBe(error);
         }
 
-        public static void ShouldBeIdle<T>(this Query<T> query, QueryKey expectedKey, object? expectedData, Exception? expectedError)
+        public static void ShouldBeIdle<T>(this Query<T> query, QueryKey key, object? data, Exception? error)
         {
             var state = query.State.Value;
-            state.Key.ShouldBe(expectedKey);
+            state.Key.ShouldBe(key);
             state.Status.ShouldBe(QueryStatus.Idle);
-            state.Data.ShouldBe(expectedData);
-            state.Error.ShouldBe(expectedError);
+            state.Data.ShouldBe(data);
+            state.Error.ShouldBe(error);
         }
     }
 }
