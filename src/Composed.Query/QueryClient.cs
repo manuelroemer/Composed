@@ -18,22 +18,6 @@ namespace Composed.Query
             return CreateQuery(() => key, queryFunction);
         }
 
-        public Query<T> CreateQuery<T>(QueryKeyProvider getKey, QueryFunction<T> queryFunction)
-        {
-            return CreateQuery(getKey, queryFunction, dependencies: Array.Empty<IObservable<Unit>>());
-        }
-
-        public Query<T> CreateQuery<T>(
-            QueryKeyProvider getKey,
-            QueryFunction<T> queryFunction,
-            params Query[] dependencies
-        )
-        {
-            _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
-            var refDependencies = dependencies.Select(q => q.State);
-            return CreateQuery(getKey, queryFunction, refDependencies.ToArray());
-        }
-
         public Query<T> CreateQuery<T>(
             QueryKeyProvider getKey,
             QueryFunction<T> queryFunction,

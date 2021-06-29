@@ -5,7 +5,7 @@ namespace Composed.Query.Tests.Utilities
 
     public static class QueryAssertions
     {
-        public static void ShouldBeDisabled(this Query query)
+        public static void ShouldBeDisabled<T>(this Query<T> query)
         {
             var state = query.State.Value;
             state.Key.ShouldBeNull();
@@ -14,7 +14,7 @@ namespace Composed.Query.Tests.Utilities
             state.Error.ShouldBeNull();
         }
 
-        public static void ShouldBeLoading(this Query query, QueryKey expectedKey)
+        public static void ShouldBeLoading<T>(this Query<T> query, QueryKey expectedKey)
         {
             var state = query.State.Value;
             state.Key.ShouldBe(expectedKey);
@@ -23,7 +23,7 @@ namespace Composed.Query.Tests.Utilities
             state.Error.ShouldBeNull();
         }
 
-        public static void ShouldBeFetching(this Query query, QueryKey expectedKey, object? expectedData, Exception? expectedError)
+        public static void ShouldBeFetching<T>(this Query<T> query, QueryKey expectedKey, object? expectedData, Exception? expectedError)
         {
             var state = query.State.Value;
             state.Key.ShouldBe(expectedKey);
@@ -32,7 +32,7 @@ namespace Composed.Query.Tests.Utilities
             state.Error.ShouldBe(expectedError);
         }
 
-        public static void ShouldBeIdle(this Query query, QueryKey expectedKey, object? expectedData, Exception? expectedError)
+        public static void ShouldBeIdle<T>(this Query<T> query, QueryKey expectedKey, object? expectedData, Exception? expectedError)
         {
             var state = query.State.Value;
             state.Key.ShouldBe(expectedKey);

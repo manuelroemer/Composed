@@ -9,18 +9,19 @@ namespace Composed.Query
 
     /// <summary>
     ///     Represents a query which fetches arbitrary data of type <typeparamref name="T"/>
-    ///     and provides details about its lifecycle.
+    ///     (leveraging automatic data caching and query de-duplication) and
+    ///     provides details about the data fetching lifecycle.
     /// </summary>
     /// <typeparam name="T">
     ///     The type of the data returned by the query.
     /// </typeparam>
-    public abstract class Query : IDisposable
+    public sealed class Query<T> : IDisposable
     {
         private readonly object _lock = new();
         private readonly QueryClient _client;
-        private readonly QueryFunction _queryFunction;
-        private readonly IRef<QueryState> _state;
-        private UnifiedQuery? _unifiedQuery;
+        private readonly QueryFunction<T> _queryFunction;
+        private readonly IRef<QueryState<T>> _state;
+        private UnifiedQuery<T>? _unifiedQuery;
         private IDisposable? _watchDependenciesSubscription;
         private IDisposable? _watchUnifiedQuerySubscription;
         private bool _isDisposed;
@@ -33,19 +34,18 @@ namespace Composed.Query
         /// <summary>
         ///     Gets the current state of the query.
         /// </summary>
-        public IReadOnlyRef<QueryState> State => _state;
+        public IReadOnlyRef<QueryState<T>> State => _state;
 
-        private protected Query(
+        internal Query(
             QueryClient client,
             QueryKeyProvider getKey,
-            QueryFunction queryFunction,
-            IObservable<Unit>[] dependencies,
-            QueryState initialQueryState
+            QueryFunction<T> queryFunction,
+            IObservable<Unit>[] dependencies
         )
         {
             _client = client;
             _queryFunction = queryFunction;
-            _state = Ref(initialQueryState);
+            _state = Ref(new QueryState<T>());
 
             _watchDependenciesSubscription = UseQueryKeyChangedHandler(getKey, dependencies);
         }
@@ -139,7 +139,7 @@ namespace Composed.Query
             _watchUnifiedQuerySubscription = null;
         }
 
-        private void OnUnifiedQueryStateChanged(UnifiedQueryState uqState)
+        private void OnUnifiedQueryStateChanged(UnifiedQueryState<T> uqState)
         {
             SetState(state => state.WithUnifiedQueryStateUpdate(uqState));
         }
@@ -156,14 +156,6 @@ namespace Composed.Query
         /// </summary>
         public void Dispose()
         {
-            Dispose(disposing: true);
-            GC.SuppressFinalize(this);
-        }
-
-        /// <inheritdoc cref="Dispose()"/>
-        /// <param name="disposing">Whether managed objects should be disposed.</param>
-        protected virtual void Dispose(bool disposing)
-        {
             lock (_lock)
             {
                 if (_isDisposed)
@@ -171,12 +163,9 @@ namespace Composed.Query
                     return;
                 }
 
-                if (disposing)
-                {
-                    _watchDependenciesSubscription?.Dispose();
-                    _watchDependenciesSubscription = null;
-                    UnsubscribeFromCurrentUnifiedQuery();
-                }
+                _watchDependenciesSubscription?.Dispose();
+                _watchDependenciesSubscription = null;
+                UnsubscribeFromCurrentUnifiedQuery();
 
                 // Important: Set the state to disabled *after* the disposal flag is set.
                 // This prevents subsequent asynchronous state updates from currently executing subscription handlers.
@@ -185,7 +174,7 @@ namespace Composed.Query
             }
         }
 
-        private void SetState(Func<QueryState, QueryState> set)
+        private void SetState(Func<QueryState<T>, QueryState<T>> set)
         {
             var notify = false;
 

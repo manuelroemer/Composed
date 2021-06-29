@@ -2,13 +2,15 @@ namespace Composed.Query
 {
     using System;
     using System.Diagnostics.CodeAnalysis;
-    using System.Text;
     using Composed.Query.Internal;
 
     /// <summary>
-    ///     Represents the current state of a <see cref="Query"/> instance.
+    ///     Represents the current state of a <see cref="Query{T}"/> instance.
     /// </summary>
-    public abstract record QueryState
+    /// <typeparam name="T">
+    ///     The type of the data returned by the query.
+    /// </typeparam>
+    public sealed record QueryState<T>
     {
         /// <summary>
         ///     Gets the <see cref="QueryKey"/> which uniquely identifies the query or
@@ -34,7 +36,7 @@ namespace Composed.Query
         ///     If the query hasn't loaded yet or if it encountered an error while fetching
         ///     the data, this is an empty default value (typically <see langword="null"/>).
         /// </summary>
-        public object? Data { get; private init; }
+        public T? Data { get; private init; }
 
         /// <summary>
         ///     Gets an error which was encountered while fetching data.
@@ -96,16 +98,16 @@ namespace Composed.Query
         [MemberNotNullWhen(true, nameof(Error))]
         public bool HasError => Error is not null;
 
-        internal QueryState WithDisabled() =>
+        internal QueryState<T> WithDisabled() =>
             this with
             {
                 Key = null,
                 Status = QueryStatus.Disabled,
-                Data = null,
+                Data = default,
                 Error = null,
             };
 
-        internal QueryState WithNewlyEnabled(QueryKey key, UnifiedQueryState uqState) =>
+        internal QueryState<T> WithNewlyEnabled(QueryKey key, UnifiedQueryState<T> uqState) =>
             this with
             {
                 Key = key,
@@ -114,32 +116,12 @@ namespace Composed.Query
                 Error = uqState.LastError,
             };
 
-        internal QueryState WithUnifiedQueryStateUpdate(UnifiedQueryState uqState) =>
+        internal QueryState<T> WithUnifiedQueryStateUpdate(UnifiedQueryState<T> uqState) =>
             this with
             {
                 Status = uqState.Status,
                 Data = uqState.LastData,
                 Error = uqState.LastError,
             };
-    }
-
-    /// <inheritdoc/>
-    /// <typeparam name="T">
-    ///     The type of the data returned by the query.
-    /// </typeparam>
-    public sealed record QueryState<T> : QueryState
-    {
-        /// <inheritdoc cref="QueryState.Data"/>
-        public new T? Data => base.Data is T t ? t : default;
-
-        internal QueryState()
-        {
-        }
-
-        protected override bool PrintMembers(StringBuilder builder)
-        {
-            // We don't want to print the shadowed data twice, hence the override.
-            return base.PrintMembers(builder);
-        }
     }
 }

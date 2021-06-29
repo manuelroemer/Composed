@@ -9,9 +9,9 @@ namespace Composed.Query.Internal
     using Composed;
     using static Composed.Compose;
 
-    internal sealed record UnifiedQueryState(
+    internal sealed record UnifiedQueryState<T>(
         bool IsLoading,
-        object? LastData,
+        T? LastData,
         Exception? LastError,
         Task? FetchingTask
     )
@@ -24,19 +24,19 @@ namespace Composed.Query.Internal
                     : QueryStatus.Idle;
     }
 
-    internal sealed class UnifiedQuery
+    internal sealed class UnifiedQuery<T>
     {
         private readonly object _lock = new();
-        private readonly QueryFunction _queryFunction;
-        private readonly IRef<UnifiedQueryState> _state;
+        private readonly QueryFunction<T> _queryFunction;
+        private readonly IRef<UnifiedQueryState<T>> _state;
         private int _activeSubscriptions;
 
-        public UnifiedQueryState CurrentState => _state.Value;
+        public UnifiedQueryState<T> CurrentState => _state.Value;
 
-        public UnifiedQuery(QueryFunction queryFunction)
+        public UnifiedQuery(QueryFunction<T> queryFunction)
         {
             _queryFunction = queryFunction;
-            _state = Ref(new UnifiedQueryState(true, null, null, FetchAndSetStateAsync()));
+            _state = Ref(new UnifiedQueryState<T>(true, default, null, FetchAndSetStateAsync()));
         }
 
         public void Refetch()
@@ -49,7 +49,7 @@ namespace Composed.Query.Internal
 
         private async Task FetchAndSetStateAsync()
         {
-            object? data = null;
+            T? data = default;
             Exception? error = null;
 
             try
@@ -70,7 +70,7 @@ namespace Composed.Query.Internal
             });
         }
 
-        private void SetState(Func<UnifiedQueryState, UnifiedQueryState> set)
+        private void SetState(Func<UnifiedQueryState<T>, UnifiedQueryState<T>> set)
         {
             var notify = false;
 
@@ -85,7 +85,7 @@ namespace Composed.Query.Internal
             }
         }
 
-        public IDisposable Subscribe(Action<UnifiedQueryState> onStateChanged)
+        public IDisposable Subscribe(Action<UnifiedQueryState<T>> onStateChanged)
         {
             var subscription = Watch(() => onStateChanged(_state.Value), _state);
             var unsubscribe = Disposable.Create(() =>

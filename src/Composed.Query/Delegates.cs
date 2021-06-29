@@ -4,15 +4,6 @@ namespace Composed.Query
     using System.Threading.Tasks;
 
     /// <summary>
-    ///     Represents a query function which fetches arbitrary data.
-    /// </summary>
-    /// <returns>
-    ///     A task which either resolve's the query's result or
-    ///     results in an exception when fetching the data failed.
-    /// </returns>
-    public delegate Task<object?> QueryFunction();
-
-    /// <summary>
     ///     Represents a query function which fetches arbitrary data of <typeparamref name="T"/>.
     /// </summary>
     /// <typeparam name="T">
