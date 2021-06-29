@@ -15,7 +15,9 @@ namespace Composed.Query
     /// <typeparam name="T">
     ///     The type of the data returned by the query.
     /// </typeparam>
+#pragma warning disable CA1724 // Types should not match namespaces
     public sealed class Query<T> : IDisposable
+#pragma warning restore CA1724
     {
         private readonly object _lock = new();
         private readonly QueryClient _client;
@@ -144,6 +146,9 @@ namespace Composed.Query
             SetState(state => new QueryState<T>(state.Key, uqState.Status, uqState.LastData, uqState.LastError));
         }
 
+        /// <summary>
+        ///     Triggers a refetch of this query (and all other queries sharing the same query key).
+        /// </summary>
         public void Refetch()
         {
             _unifiedQuery?.Refetch();
@@ -173,6 +178,10 @@ namespace Composed.Query
                 _state.SetValue(QueryState<T>.Disabled, suppressNotification: true);
             }
         }
+
+        /// <inheritdoc/>
+        public override string ToString() =>
+            State.Value.ToString();
 
         private void SetState(Func<QueryState<T>, QueryState<T>> set)
         {
