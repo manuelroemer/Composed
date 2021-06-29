@@ -45,7 +45,7 @@ namespace Composed.Query
         {
             _client = client;
             _queryFunction = queryFunction;
-            _state = Ref(new QueryState<T>());
+            _state = Ref(QueryState<T>.Disabled);
 
             _watchDependenciesSubscription = UseQueryKeyChangedHandler(getKey, dependencies);
         }
@@ -77,7 +77,7 @@ namespace Composed.Query
                     {
                         // No valid key means that the query will be disabled.
                         UnsubscribeFromCurrentUnifiedQuery();
-                        notify = _state.SetValue(_state.Value.WithDisabled(), suppressNotification: true);
+                        notify = _state.SetValue(QueryState<T>.Disabled, suppressNotification: true);
                     }
                     else
                     {
@@ -89,7 +89,7 @@ namespace Composed.Query
                         SubscribeToNewUnifiedQuery(newKey);
 
                         var uqState = _unifiedQuery.CurrentState;
-                        var newState = _state.Value.WithNewlyEnabled(newKey, uqState);
+                        var newState = new QueryState<T>(newKey, uqState.Status, uqState.LastData, uqState.LastError);
                         notify = _state.SetValue(newState, suppressNotification: true);
                     }
                 }
@@ -141,7 +141,7 @@ namespace Composed.Query
 
         private void OnUnifiedQueryStateChanged(UnifiedQueryState<T> uqState)
         {
-            SetState(state => state.WithUnifiedQueryStateUpdate(uqState));
+            SetState(state => new QueryState<T>(state.Key, uqState.Status, uqState.LastData, uqState.LastError));
         }
 
         public void Refetch()
@@ -170,7 +170,7 @@ namespace Composed.Query
                 // Important: Set the state to disabled *after* the disposal flag is set.
                 // This prevents subsequent asynchronous state updates from currently executing subscription handlers.
                 _isDisposed = true;
-                _state.SetValue(_state.Value.WithDisabled(), suppressNotification: true);
+                _state.SetValue(QueryState<T>.Disabled, suppressNotification: true);
             }
         }
 

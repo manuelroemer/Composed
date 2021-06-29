@@ -2,7 +2,6 @@ namespace Composed.Query
 {
     using System;
     using System.Diagnostics.CodeAnalysis;
-    using Composed.Query.Internal;
 
     /// <summary>
     ///     Represents the current state of a <see cref="Query{T}"/> instance.
@@ -10,8 +9,10 @@ namespace Composed.Query
     /// <typeparam name="T">
     ///     The type of the data returned by the query.
     /// </typeparam>
-    public sealed record QueryState<T>
+    public sealed class QueryState<T> : IEquatable<QueryState<T>>
     {
+        internal static readonly QueryState<T> Disabled = new(null, QueryStatus.Disabled, default, null);
+
         /// <summary>
         ///     Gets the <see cref="QueryKey"/> which uniquely identifies the query or
         ///     <see langword="null"/> if the query is disabled and therefore does not have
@@ -98,30 +99,38 @@ namespace Composed.Query
         [MemberNotNullWhen(true, nameof(Error))]
         public bool HasError => Error is not null;
 
-        internal QueryState<T> WithDisabled() =>
-            this with
-            {
-                Key = null,
-                Status = QueryStatus.Disabled,
-                Data = default,
-                Error = null,
-            };
+        internal QueryState(QueryKey? key, QueryStatus status, T? data, Exception? error)
+        {
+            Key = key;
+            Status = status;
+            Data = data;
+            Error = error;
+        }
 
-        internal QueryState<T> WithNewlyEnabled(QueryKey key, UnifiedQueryState<T> uqState) =>
-            this with
-            {
-                Key = key,
-                Status = uqState.Status,
-                Data = uqState.LastData,
-                Error = uqState.LastError,
-            };
+        /// <inheritdoc/>
+        public override bool Equals(object? obj) =>
+            Equals(obj as QueryState<T>);
 
-        internal QueryState<T> WithUnifiedQueryStateUpdate(UnifiedQueryState<T> uqState) =>
-            this with
-            {
-                Status = uqState.Status,
-                Data = uqState.LastData,
-                Error = uqState.LastError,
-            };
+        /// <inheritdoc/>
+        public bool Equals(QueryState<T>? other) =>
+            other is not null &&
+            Equals(other.Key, Key) &&
+            Equals(other.Status, Status) &&
+            Equals(other.Data, Data) &&
+            Equals(other.Error, Error);
+
+        /// <inheritdoc/>
+        public override int GetHashCode() =>
+            HashCode.Combine(Key, Status, Data, Error);
+
+        /// <inheritdoc/>
+        public override string ToString() =>
+            $"{nameof(QueryState<T>)} {{ {nameof(Key)} = {Key}, {nameof(Status)} = {Status}, {nameof(Data)} = {Data}, {nameof(Error)} = {Error} }}";
+
+        public static bool operator ==(QueryState<T>? left, QueryState<T>? right) =>
+            left is null ? right is null : left.Equals(right);
+
+        public static bool operator !=(QueryState<T>? left, QueryState<T>? right) =>
+            !(left == right);
     }
 }
