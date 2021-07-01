@@ -31,6 +31,11 @@ namespace Composed.Query
     ///             </item>
     ///             <item>
     ///                 <description>
+    ///                     <c>["simpleKey"]</c> and <c>["anotherSimpleKey"]</c> are <b>not</b> equal.
+    ///                 </description>
+    ///             </item>
+    ///             <item>
+    ///                 <description>
     ///                     <c>["simpleKey", "123"]</c> and <c>["simpleKey"]</c> are <b>not</b> equal.
     ///                 </description>
     ///             </item>
