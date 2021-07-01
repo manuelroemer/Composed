@@ -41,8 +41,15 @@ namespace Composed.Query
         ///     Gets the current status of the query.
         /// </summary>
         /// <remarks>
-        ///     See the different <see cref="QueryStatus"/> values for details on the possible
-        ///     statuses of a query.
+        ///     <para>
+        ///         See the different <see cref="QueryStatus"/> values for details on the possible
+        ///         statuses of a query.
+        ///     </para>
+        ///     <para>
+        ///         <b>Note:</b> For simple status checks, it is recommended to use the properties
+        ///         of this class (like <see cref="IsFetching"/>) instead of this property.
+        ///         Doing so allows you to avoid dealing with the <see cref="QueryStatus"/> enum flags.
+        ///     </para>
         /// </remarks>
         public QueryStatus Status { get; }
 
