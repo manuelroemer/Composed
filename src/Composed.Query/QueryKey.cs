@@ -77,7 +77,19 @@ namespace Composed.Query
         public QueryKey(IEnumerable<object?> components)
         {
             _components = components?.ToArray() ?? throw new ArgumentNullException(nameof(components));
-            _hashCode = HashCode.Combine(_components);
+            _hashCode = CreateHashCode(_components);
+
+            static int CreateHashCode(object?[] components)
+            {
+                var hashCode = new HashCode();
+
+                foreach (var component in components)
+                {
+                    hashCode.Add(component);
+                }
+
+                return hashCode.ToHashCode();
+            }
         }
 
         /// <summary>

@@ -1,7 +1,6 @@
 namespace Composed.Query.Tests
 {
     using System;
-    using System.Drawing;
     using System.Threading.Tasks;
     using Composed.Query.Tests.Utilities;
     using Shouldly;
@@ -143,6 +142,96 @@ namespace Composed.Query.Tests
 
             query.ShouldBeInDisabledState();
             controller.Verify(4);
+        }
+
+        [Fact]
+        public async Task TwoQueries_OneQueryMakingStateTransitions_HaveSharedState()
+        {
+            var controller = new QueryFunctionController<int>();
+            var client = new QueryClient();
+            using var controlledQuery = client.CreateQuery(GetKey(), controller.Function);
+            using var influencedQuery = client.CreateQuery(GetKey(), controller.Function);
+            var queries = new[] { controlledQuery, influencedQuery };
+            var error = new Exception();
+
+            // -> Loading
+            controlledQuery.ShouldBeInLoadingState(key: GetKey());
+            influencedQuery.ShouldBeInLoadingState(key: GetKey());
+            controller.Verify(1);
+
+            // Loading -> Success
+            await controller.ReturnAndWaitForStateChange(queries, 123);
+
+            controlledQuery.ShouldBeInSuccessState(key: GetKey(), data: 123);
+            influencedQuery.ShouldBeInSuccessState(key: GetKey(), data: 123);
+            controller.Verify(1);
+
+            // Success -> FetchingSuccess
+            controller.Reset();
+            controlledQuery.Refetch();
+
+            controlledQuery.ShouldBeInFetchingSuccessState(key: GetKey(), data: 123);
+            influencedQuery.ShouldBeInFetchingSuccessState(key: GetKey(), data: 123);
+            controller.Verify(2);
+
+            // FetchingSuccess -> Success
+            await controller.ReturnAndWaitForStateChange(queries, 456);
+
+            controlledQuery.ShouldBeInSuccessState(key: GetKey(), data: 456);
+            influencedQuery.ShouldBeInSuccessState(key: GetKey(), data: 456);
+            controller.Verify(2);
+
+            // Success -> FetchingSuccess
+            controller.Reset();
+            controlledQuery.Refetch();
+
+            controlledQuery.ShouldBeInFetchingSuccessState(key: GetKey(), data: 456);
+            influencedQuery.ShouldBeInFetchingSuccessState(key: GetKey(), data: 456);
+            controller.Verify(3);
+
+            // FetchingSuccess -> Error
+            await controller.ThrowAndWaitForStateChange(queries, error);
+
+            controlledQuery.ShouldBeInErrorState(key: GetKey(), error);
+            influencedQuery.ShouldBeInErrorState(key: GetKey(), error);
+            controller.Verify(3);
+
+            // Error -> FetchingError
+            controller.Reset();
+            controlledQuery.Refetch();
+
+            controlledQuery.ShouldBeInFetchingErrorState(key: GetKey(), error);
+            influencedQuery.ShouldBeInFetchingErrorState(key: GetKey(), error);
+            controller.Verify(4);
+
+            // FetchingError -> Success
+            await controller.ReturnAndWaitForStateChange(queries, 789);
+
+            controlledQuery.ShouldBeInSuccessState(key: GetKey(), 789);
+            influencedQuery.ShouldBeInSuccessState(key: GetKey(), 789);
+            controller.Verify(4);
+
+            // Success -> Disabled (Influenced)
+            influencedQuery.Dispose();
+
+            controlledQuery.ShouldBeInSuccessState(key: GetKey(), 789);
+            influencedQuery.ShouldBeInDisabledState();
+
+            // Success -> FetchingSuccess (Controlled)
+            controller.Reset();
+            controlledQuery.Refetch();
+
+            controlledQuery.ShouldBeInFetchingSuccessState(key: GetKey(), 789);
+            influencedQuery.ShouldBeInDisabledState();
+            controller.Verify(5);
+
+            // FetchingSuccess -> Disabled (Controlled)
+            controlledQuery.Dispose();
+            controlledQuery.Refetch();
+
+            controlledQuery.ShouldBeInDisabledState();
+            influencedQuery.ShouldBeInDisabledState();
+            controller.Verify(5);
         }
 
         #endregion

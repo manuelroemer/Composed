@@ -125,7 +125,7 @@ namespace Composed.Query
             UnsubscribeFromCurrentUnifiedQuery();
 
             var cache = _client.UnifiedQueryCache;
-            var unifiedQuery = cache.GetOrAdd(key, _queryFunction);
+            var unifiedQuery = cache.Get(key, _queryFunction);
 
             // Trigger the refetch before subscribing to the data so that we don't immediately receive
             // an "IsFetching" state change event and instead begin in the "IsFetching" state.

@@ -1,7 +1,6 @@
 namespace Composed.Query
 {
     using System;
-    using System.Linq;
     using System.Reactive;
     using Composed.Query.Internal;
 

@@ -1,6 +1,8 @@
 namespace Composed.Query.Tests.Utilities
 {
     using System;
+    using System.Collections.Generic;
+    using System.Linq;
     using System.Threading.Tasks;
     using Composed.Query;
     using Moq;
@@ -19,16 +21,22 @@ namespace Composed.Query.Tests.Utilities
             FunctionMock.Setup(fn => fn()).Returns(() => _tcs.Task);
         }
 
-        public Task ReturnAndWaitForStateChange(Query<T> query, T result = default!, int timeoutMs = 5000)
+        public Task ReturnAndWaitForStateChange(Query<T> query, T result = default!, int timeoutMs = 5000) =>
+            ReturnAndWaitForStateChange(new[] { query }, result, timeoutMs);
+
+        public Task ReturnAndWaitForStateChange(IEnumerable<Query<T>> queries, T result = default!, int timeoutMs = 5000)
         {
-            var task = query.State.WaitNext(timeoutMs);
+            var task = Task.WhenAll(queries.Select(query => query.State.WaitNext(timeoutMs)));
             Return(result);
             return task;
         }
 
-        public Task ThrowAndWaitForStateChange(Query<T> query, Exception? ex = default!, int timeoutMs = 5000)
+        public Task ThrowAndWaitForStateChange(Query<T> query, Exception? ex = default!, int timeoutMs = 5000) =>
+            ThrowAndWaitForStateChange(new[] { query }, ex, timeoutMs);
+
+        public Task ThrowAndWaitForStateChange(IEnumerable<Query<T>> queries, Exception? ex = default!, int timeoutMs = 5000)
         {
-            var task = query.State.WaitNext(timeoutMs);
+            var task = Task.WhenAll(queries.Select(query => query.State.WaitNext(timeoutMs)));
             Throw(ex);
             return task;
         }
