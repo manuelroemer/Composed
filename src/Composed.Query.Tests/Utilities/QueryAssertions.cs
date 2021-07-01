@@ -5,7 +5,7 @@ namespace Composed.Query.Tests.Utilities
 
     public static class QueryAssertions
     {
-        public static void ShouldBeDisabled<T>(this Query<T> query)
+        public static void ShouldBeInDisabledState<T>(this Query<T> query)
         {
             var state = query.State.Value;
             state.Key.ShouldBeNull();
@@ -14,30 +14,48 @@ namespace Composed.Query.Tests.Utilities
             state.Error.ShouldBeNull();
         }
 
-        public static void ShouldBeLoading<T>(this Query<T> query, QueryKey key)
-        {
-            var state = query.State.Value;
-            state.Key.ShouldBe(key);
-            state.Status.ShouldBe(QueryStatus.Loading);
-            state.Data.ShouldBe(default);
-            state.Error.ShouldBeNull();
-        }
-
-        public static void ShouldBeFetching<T>(this Query<T> query, QueryKey key, object? data, Exception? error)
+        public static void ShouldBeInLoadingState<T>(this Query<T> query, QueryKey key)
         {
             var state = query.State.Value;
             state.Key.ShouldBe(key);
             state.Status.ShouldBe(QueryStatus.Fetching);
-            state.Data.ShouldBe(data);
-            state.Error.ShouldBe(error);
+            state.Data.ShouldBe(default);
+            state.Error.ShouldBeNull();
         }
 
-        public static void ShouldBeIdle<T>(this Query<T> query, QueryKey key, object? data, Exception? error)
+        public static void ShouldBeInSuccessState<T>(this Query<T> query, QueryKey key, object? data)
         {
             var state = query.State.Value;
             state.Key.ShouldBe(key);
-            state.Status.ShouldBe(QueryStatus.Idle);
+            state.Status.ShouldBe(QueryStatus.Success);
             state.Data.ShouldBe(data);
+            state.Error.ShouldBeNull();
+        }
+
+        public static void ShouldBeInErrorState<T>(this Query<T> query, QueryKey key, Exception? error)
+        {
+            var state = query.State.Value;
+            state.Key.ShouldBe(key);
+            state.Status.ShouldBe(QueryStatus.Error);
+            state.Data.ShouldBe(default(T));
+            state.Error.ShouldBe(error);
+        }
+
+        public static void ShouldBeInFetchingSuccessState<T>(this Query<T> query, QueryKey key, object? data)
+        {
+            var state = query.State.Value;
+            state.Key.ShouldBe(key);
+            state.Status.ShouldBe(QueryStatus.Fetching | QueryStatus.Success);
+            state.Data.ShouldBe(data);
+            state.Error.ShouldBeNull();
+        }
+
+        public static void ShouldBeInFetchingErrorState<T>(this Query<T> query, QueryKey key, Exception? error)
+        {
+            var state = query.State.Value;
+            state.Key.ShouldBe(key);
+            state.Status.ShouldBe(QueryStatus.Fetching | QueryStatus.Error);
+            state.Data.ShouldBe(default(T));
             state.Error.ShouldBe(error);
         }
     }

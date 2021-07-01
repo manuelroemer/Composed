@@ -1,15 +1,25 @@
 namespace Composed.Query
 {
+    using System;
+
     /// <summary>
     ///     Defines the possible statuses of a query.
+    ///     This is a flagged enum which allows several status combinations.
+    ///     See the documentation of the respective flags for details on supported combinations.
     /// </summary>
+    [Flags]
     public enum QueryStatus
     {
         /// <summary>
-        ///     The query is disabled and won't trigger the query function at the moment.
+        ///     <para>
+        ///         The query is disabled and won't trigger the query function at the moment.
+        ///     </para>
+        ///     <para>
+        ///         This flag should not be combined with other flags.
+        ///     </para>
         /// </summary>
         /// <remarks>
-        ///     There are two ways for a query to end up disabled:
+        ///     There are generally two ways for a query to end up disabled:
         ///
         ///     <list type="number">
         ///         <item>
@@ -30,26 +40,43 @@ namespace Composed.Query
         ///         </item>
         ///     </list>
         /// </remarks>
-        Disabled,
+        Disabled = 1,
 
         /// <summary>
-        ///     The query is currently fetching data using the query function.
-        ///     In comparison to <see cref="Fetching"/>, the query <i>does not</i> have stale
-        ///     data or a stale error, i.e. the query is currently fetching data for the first time.
+        ///     <para>
+        ///         The query is currently fetching data using the query function.
+        ///     </para>
+        ///     <para>
+        ///         This flag may be combined with <i>either</i> <see cref="Success"/> <i>or</i> <see cref="Error"/>.
+        ///         If combined, the query is currently refetching data.
+        ///         If not combined, the query is fetching the initial data (and is therefore in
+        ///         an "Initial Loading" state).
+        ///     </para>
         /// </summary>
-        Loading,
+        Fetching = 2,
 
         /// <summary>
-        ///     The query is currently fetching data using the query function.
-        ///     In comparison to <see cref="Loading"/>, the query <i>does</i> have stale
-        ///     data or a stale error.
+        ///     <para>
+        ///         The query has successfully resolved data using the query function.
+        ///     </para>
+        ///     <para>
+        ///         This flag may be combined with <see cref="Fetching"/>.
+        ///         If combined, the query is currently refetching data, but it has stale data which
+        ///         can be worked with in the meantime.
+        ///     </para>
         /// </summary>
-        Fetching,
+        Success = 4,
 
         /// <summary>
-        ///     The query has stale data or a stale error, but it is not actively fetching any
-        ///     new data at the moment.
+        ///     <para>
+        ///         The query has already attempted to resolve data, but the query function threw an error.
+        ///     </para>
+        ///     <para>
+        ///         This flag may be combined with <see cref="Fetching"/>.
+        ///         If combined, the query is currently refetching data, but it has a stale error which
+        ///         can be worked with in the meantime.
+        ///     </para>
         /// </summary>
-        Idle,
+        Error = 8,
     }
 }

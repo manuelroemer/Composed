@@ -1,6 +1,7 @@
 namespace Composed.Query
 {
     using System;
+    using System.ComponentModel;
     using System.Diagnostics.CodeAnalysis;
     using System.Reactive;
     using Composed;
@@ -91,7 +92,7 @@ namespace Composed.Query
                         SubscribeToNewUnifiedQuery(newKey);
 
                         var uqState = _unifiedQuery.CurrentState;
-                        var newState = new QueryState<T>(newKey, uqState.Status, uqState.LastData, uqState.LastError);
+                        var newState = new QueryState<T>(uqState.Status, newKey, uqState.LastData, uqState.LastError);
                         notify = _state.SetValue(newState, suppressNotification: true);
                     }
                 }
@@ -143,7 +144,7 @@ namespace Composed.Query
 
         private void OnUnifiedQueryStateChanged(UnifiedQueryState<T> uqState)
         {
-            SetState(state => new QueryState<T>(state.Key, uqState.Status, uqState.LastData, uqState.LastError));
+            SetState(state => new QueryState<T>(uqState.Status, state.Key, uqState.LastData, uqState.LastError));
         }
 
         /// <summary>
@@ -177,6 +178,18 @@ namespace Composed.Query
                 _isDisposed = true;
                 _state.SetValue(QueryState<T>.Disabled, suppressNotification: true);
             }
+        }
+
+        /// <summary>
+        ///     Deconstructs the query into itself and its <see cref="State"/>.
+        /// </summary>
+        /// <param name="query">Will be assigned the query itself.</param>
+        /// <param name="state">Will be assigned the query's <see cref="State"/>.</param>
+        [EditorBrowsable(EditorBrowsableState.Advanced)]
+        public void Deconstruct(out Query<T> query, out IReadOnlyRef<QueryState<T>> state)
+        {
+            query = this;
+            state = State;
         }
 
         /// <inheritdoc/>

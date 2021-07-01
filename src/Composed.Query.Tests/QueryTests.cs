@@ -29,7 +29,7 @@ namespace Composed.Query.Tests
             var client = new QueryClient();
             using var query = client.CreateQuery(queryKeyProvider, controller.Function);
 
-            query.ShouldBeLoading(key: queryKeyProvider()!);
+            query.ShouldBeInLoadingState(key: queryKeyProvider()!);
             controller.Verify(1);
         }
 
@@ -41,7 +41,7 @@ namespace Composed.Query.Tests
             var client = new QueryClient();
             using var query = client.CreateQuery(queryKeyProvider, controller.Function);
 
-            query.ShouldBeDisabled();
+            query.ShouldBeInDisabledState();
             controller.Verify(0);
         }
 
@@ -52,23 +52,23 @@ namespace Composed.Query.Tests
             var client = new QueryClient();
             using var query = client.CreateQuery(GetKey(), controller.Function);
 
-            query.ShouldBeLoading(key: GetKey());
+            query.ShouldBeInLoadingState(key: GetKey());
             controller.Verify(1);
 
             await controller.ReturnAndWaitForStateChange(query, 123);
 
-            query.ShouldBeIdle(key: GetKey(), data: 123, error: null);
+            query.ShouldBeInSuccessState(key: GetKey(), data: 123);
             controller.Verify(1);
 
             controller.Reset();
             query.Refetch();
 
-            query.ShouldBeFetching(key: GetKey(), data: 123, error: null);
+            query.ShouldBeInFetchingSuccessState(key: GetKey(), data: 123);
             controller.Verify(2);
 
             await controller.ReturnAndWaitForStateChange(query, 456);
 
-            query.ShouldBeIdle(key: GetKey(), data: 456, error: null);
+            query.ShouldBeInSuccessState(key: GetKey(), data: 456);
             controller.Verify(2);
         }
     }

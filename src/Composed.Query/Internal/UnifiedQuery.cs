@@ -10,19 +10,11 @@ namespace Composed.Query.Internal
     using static Composed.Compose;
 
     internal sealed record UnifiedQueryState<T>(
-        bool IsLoading,
+        QueryStatus Status,
         T? LastData,
         Exception? LastError,
         Task? FetchingTask
-    )
-    {
-        public QueryStatus Status =>
-            IsLoading
-                ? QueryStatus.Loading
-                : FetchingTask is not null
-                    ? QueryStatus.Fetching
-                    : QueryStatus.Idle;
-    }
+    );
 
     internal sealed class UnifiedQuery<T>
     {
@@ -36,13 +28,14 @@ namespace Composed.Query.Internal
         public UnifiedQuery(QueryFunction<T> queryFunction)
         {
             _queryFunction = queryFunction;
-            _state = Ref(new UnifiedQueryState<T>(true, default, null, FetchAndSetStateAsync()));
+            _state = Ref(new UnifiedQueryState<T>(QueryStatus.Fetching, default, null, FetchAndSetStateAsync()));
         }
 
         public void Refetch()
         {
             SetState(state => state with
             {
+                Status = state.Status | QueryStatus.Fetching,
                 FetchingTask = state.FetchingTask ?? FetchAndSetStateAsync(),
             });
         }
@@ -63,7 +56,7 @@ namespace Composed.Query.Internal
 
             SetState(state => state with
             {
-                IsLoading = false,
+                Status = error is null ? QueryStatus.Success : QueryStatus.Error,
                 FetchingTask = null,
                 LastData = data,
                 LastError = error,
