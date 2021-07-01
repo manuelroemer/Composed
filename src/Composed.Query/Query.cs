@@ -4,6 +4,7 @@ namespace Composed.Query
     using System.ComponentModel;
     using System.Diagnostics.CodeAnalysis;
     using System.Reactive;
+    using System.Reactive.Concurrency;
     using Composed;
     using Composed.Query.Internal;
     using static Composed.Compose;
@@ -35,7 +36,15 @@ namespace Composed.Query
         public QueryClient Client => _client;
 
         /// <summary>
-        ///     Gets the current state of the query.
+        ///     <para>
+        ///         Gets the current state of the query.
+        ///     </para>
+        ///     <para>
+        ///         <b>Warning:</b> This ref's value can frequently be changed from any thread due
+        ///         to the way queries are internally cached and deduplicated.
+        ///         If this could cause any problems to your code, use an <see cref="IScheduler"/>
+        ///         with this query/ref.
+        ///     </para>
         /// </summary>
         public IReadOnlyRef<QueryState<T>> State => _state;
 
