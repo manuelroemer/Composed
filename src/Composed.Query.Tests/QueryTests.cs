@@ -81,7 +81,7 @@ namespace Composed.Query.Tests
         #region Query Flows
 
         [Fact]
-        public async Task SingleQuery_OnQueryFunctionCompletion_CorrectlyEntersAllStates()
+        public async Task SingleQuery_WithAllStateTransitions_HasExpectedLifecycle()
         {
             var controller = new QueryFunctionController<int>();
             var client = new QueryClient();
