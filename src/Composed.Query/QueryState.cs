@@ -180,7 +180,6 @@ namespace Composed.Query
 
             if (status == QueryStatus.Fetching)
             {
-
                 if (!Equals(data, default(T)))
                 {
                     throw new ArgumentException("A query in the Fetching state must not have any data.", nameof(data));
