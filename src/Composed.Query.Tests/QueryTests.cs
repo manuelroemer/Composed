@@ -234,6 +234,21 @@ namespace Composed.Query.Tests
             controller.Verify(5);
         }
 
+        [Fact]
+        public async Task SingleQuery_DisposalWhileFetching_DoesNotLeaveDisposedState()
+        {
+            var controller = new QueryFunctionController<int>();
+            var client = new QueryClient();
+            using var query = client.CreateQuery(GetKey(), controller.Function);
+
+            query.ShouldBeInLoadingState(key: GetKey());
+            query.Dispose();
+            query.ShouldBeInDisabledState();
+
+            await Should.ThrowAsync<OperationCanceledException>(async () => await controller.ReturnAndWaitForStateChange(query, 123, timeoutMs: 1000));
+            query.ShouldBeInDisabledState();
+        }
+
         #endregion
     }
 }
