@@ -118,23 +118,7 @@ namespace Composed.Query
                 return false;
             }
 
-            if (_components.Length != other._components.Length)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < _components.Length; i++)
-            {
-                var thisComponent = _components[i];
-                var otherComponent = other._components[i];
-
-                if (!Equals(thisComponent, otherComponent))
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return Components.SequenceEqual(other.Components);
         }
 
         /// <inheritdoc/>
@@ -151,10 +135,10 @@ namespace Composed.Query
         public static bool operator !=(QueryKey? left, QueryKey? right) =>
             !(left == right);
 
-        public static implicit operator QueryKey(string key) =>
+        public static implicit operator QueryKey(string? key) =>
             new QueryKey(key);
 
-        public static implicit operator QueryKey(object[] components) =>
+        public static implicit operator QueryKey(object?[] components) =>
             new QueryKey(components);
     }
 }
