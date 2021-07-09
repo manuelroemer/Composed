@@ -26,11 +26,10 @@ namespace Composed.Query
         private readonly QueryFunction<T> _queryFunction;
         private readonly IRef<QueryState<T>> _state;
         private IDisposable? _watchDependenciesSubscription;
+        private IDisposable? _rentUnifiedQuerySubscription;
         private IDisposable? _watchUnifiedQuerySubscription;
         private bool _isDisposed;
-#pragma warning disable CA2213 // Disposable fields should be disposed. The UnifiedQuery lifetime is handled elsewhere.
         private UnifiedQuery<T>? _unifiedQuery;
-#pragma warning restore CA2213
 
         /// <summary>
         ///     Gets the <see cref="QueryClient"/> with which the query is associated.
@@ -100,9 +99,7 @@ namespace Composed.Query
                         // Since this query subscribed to the unified query it will receive any
                         // data updates from now on.
                         SubscribeToNewUnifiedQuery(newKey);
-                        var uqState = _unifiedQuery.CurrentState;
-                        var initialState = new QueryState<T>(uqState.Status, newKey, uqState.LastData, uqState.LastError);
-                        notify = _state.SetValue(initialState, suppressNotification: true);
+                        notify = SyncStateWithUnifiedQuery(_unifiedQuery);
                     }
                 }
 
@@ -130,21 +127,25 @@ namespace Composed.Query
         }
 
         [MemberNotNull(nameof(_unifiedQuery))]
+        [MemberNotNull(nameof(_rentUnifiedQuerySubscription))]
         [MemberNotNull(nameof(_watchUnifiedQuerySubscription))]
-        private void SubscribeToNewUnifiedQuery(QueryKey key)
+        private QueryState<T> SubscribeToNewUnifiedQuery(QueryKey key)
         {
             // Called from lock.
             UnsubscribeFromCurrentUnifiedQuery();
 
-            var cache = _client.UnifiedQueryCache;
-            var unifiedQuery = cache.Get(key, _queryFunction);
+            var (unifiedQuery, rentUnifiedQuerySubscription) = _client.UnifiedQueryCache.Rent(key, _queryFunction);
+            var watchUnifiedQuerySubscription = UseUnifiedQueryStateChangedHandler(unifiedQuery);
 
             // Trigger the refetch before subscribing to the data so that we don't immediately receive
             // an "IsFetching" state change event and instead begin in the "IsFetching" state.
             unifiedQuery.Refetch();
 
             _unifiedQuery = unifiedQuery;
-            _watchUnifiedQuerySubscription = unifiedQuery.Subscribe(s => OnUnifiedQueryStateChanged(unifiedQuery, s));
+            _rentUnifiedQuerySubscription = rentUnifiedQuerySubscription;
+            _watchUnifiedQuerySubscription = watchUnifiedQuerySubscription;
+
+            return unifiedQuery.QueryState.Value;
         }
 
         private void UnsubscribeFromCurrentUnifiedQuery()
@@ -153,42 +154,58 @@ namespace Composed.Query
             _unifiedQuery = null;
             _watchUnifiedQuerySubscription?.Dispose();
             _watchUnifiedQuerySubscription = null;
+            _rentUnifiedQuerySubscription?.Dispose();
+            _rentUnifiedQuerySubscription = null;
         }
 
-        private void OnUnifiedQueryStateChanged(UnifiedQuery<T> unifiedQuery, UnifiedQueryState<T> uqState)
+        private IDisposable UseUnifiedQueryStateChangedHandler(UnifiedQuery<T> unifiedQuery) =>
+            Watch(() =>
+            {
+                var notify = false;
+
+                lock (_lock)
+                {
+                    // Due to threading, this handler can be invoked:
+                    // - after disposal
+                    // - after a query key change (which would have changed _unifiedQuery).
+                    // In either case, the state shouldn't change then.
+                    if (_unifiedQuery != unifiedQuery || _isDisposed)
+                    {
+                        return;
+                    }
+
+                    notify = SyncStateWithUnifiedQuery(unifiedQuery);
+                }
+
+                if (notify)
+                {
+                    _state.Notify();
+                }
+            }, unifiedQuery.QueryState);
+
+        /// <summary>
+        ///     Sets the <see cref="State"/> to the state of the unified query.
+        ///     Disposes the query when the unified query is disposed.
+        /// </summary>
+        /// <returns>
+        ///     Whether a state changed notification should be sent.
+        /// </returns>
+        private bool SyncStateWithUnifiedQuery(UnifiedQuery<T> unifiedQuery)
         {
-            var notify = false;
+            // Called from lock.
 
-            lock (_lock)
+            // When the underlying unified query gets disabled it means that it was manually disposed
+            // via the query client (auto disposal is not possible with active subscriptions).
+            // In such a case, also transitively dispose this query as the query client is unusable.
+            if (unifiedQuery.QueryState.Value.IsDisabled)
             {
-                // Due to threading, this handler can be invoked:
-                // - after disposal
-                // - after a query key change (which would have changed _unifiedQuery).
-                // In either case, the state shouldn't change then.
-                if (_unifiedQuery != unifiedQuery || _isDisposed)
-                {
-                    return;
-                }
-
-                // When the underlying unified query is disabled it means that it was manually disposed
-                // via the query client (auto disposal is not possible with active subscriptions).
-                // In such a case, also transitively dispose this query as the query client is unusable.
-                if (uqState.Status == QueryStatus.Disabled)
-                {
-                    Dispose();
-                    return;
-                }
-
-                notify = _state.SetValue(
-                    new QueryState<T>(uqState.Status, _state.Value.Key, uqState.LastData, uqState.LastError),
-                    suppressNotification: true
-                );
+                return DisposeInternal();
             }
 
-            if (notify)
-            {
-                _state.Notify();
-            }
+            return _state.SetValue(
+                unifiedQuery.QueryState.Value,
+                suppressNotification: true
+            );
         }
 
         /// <summary>
@@ -208,20 +225,32 @@ namespace Composed.Query
         {
             lock (_lock)
             {
-                if (_isDisposed)
-                {
-                    return;
-                }
-
-                _watchDependenciesSubscription?.Dispose();
-                _watchDependenciesSubscription = null;
-                UnsubscribeFromCurrentUnifiedQuery();
-
-                // Important: Set the state to disabled *after* the disposal flag is set.
-                // This prevents subsequent asynchronous state updates from currently executing subscription handlers.
-                _isDisposed = true;
-                _state.SetValue(QueryState<T>.Disabled, suppressNotification: true);
+                DisposeInternal();
             }
+        }
+
+        /// <summary>
+        ///     Performs the disposing logic for the query.
+        /// </summary>
+        /// <returns>
+        ///     Whether a state changed notification should be sent.
+        /// </returns>
+        private bool DisposeInternal()
+        {
+            // Called from lock.
+            if (_isDisposed)
+            {
+                return false;
+            }
+
+            _watchDependenciesSubscription?.Dispose();
+            _watchDependenciesSubscription = null;
+            UnsubscribeFromCurrentUnifiedQuery();
+
+            // Important: Set the state to disabled *after* the disposal flag is set.
+            // This prevents subsequent asynchronous state updates from currently executing subscription handlers.
+            _isDisposed = true;
+            return _state.SetValue(QueryState<T>.Disabled, suppressNotification: true);
         }
 
         /// <summary>

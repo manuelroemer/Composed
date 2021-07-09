@@ -1,15 +1,9 @@
 namespace Composed.Query.Internal
 {
     using System;
-    using System.Diagnostics;
-    using System.Reactive.Concurrency;
-    using System.Reactive.Disposables;
-    using System.Threading;
     using System.Threading.Tasks;
     using Composed;
     using static Composed.Compose;
-
-    internal sealed record UnifiedQueryState<T>(QueryStatus Status, T? LastData, Exception? LastError, Task? FetchingTask);
 
     /// <summary>
     ///     A unified query.
@@ -19,20 +13,28 @@ namespace Composed.Query.Internal
     internal sealed class UnifiedQuery<T> : IDisposable
     {
         private readonly object _lock = new();
+        private readonly QueryKey _key;
         private readonly QueryFunction<T> _queryFunction;
-        private readonly IRef<UnifiedQueryState<T>> _state;
-        private int _activeSubscriptions;
+        private readonly IRef<UnifiedQueryState> _state;
         private bool _isDisposed;
 
-        public UnifiedQueryState<T> CurrentState => _state.Value;
+        public IReadOnlyRef<QueryState<T>> QueryState { get; }
 
         /// <summary>
         ///     Creates a new unified query which immediately starts fetching data.
         /// </summary>
-        public UnifiedQuery(QueryFunction<T> queryFunction)
+        public UnifiedQuery(QueryKey key, QueryFunction<T> queryFunction)
         {
+            _key = key;
             _queryFunction = queryFunction;
-            _state = Ref(new UnifiedQueryState<T>(QueryStatus.Fetching, default, null, FetchAndSetStateAsync()));
+            _state = Ref(
+                new UnifiedQueryState(
+                    new QueryState<T>(QueryStatus.Fetching, key, default, null),
+                    FetchAndSetStateAsync()
+                )
+            );
+
+            QueryState = Computed(() => _state.Value.QueryState, _state);
         }
 
         /// <summary>
@@ -42,7 +44,12 @@ namespace Composed.Query.Internal
         {
             SetState(state => state with
             {
-                Status = state.Status | QueryStatus.Fetching,
+                QueryState = new QueryState<T>(
+                    state.QueryState.Status | QueryStatus.Fetching,
+                    _key,
+                    state.QueryState.Data,
+                    state.QueryState.Error
+                ),
                 FetchingTask = state.FetchingTask ?? FetchAndSetStateAsync(),
             });
         }
@@ -52,35 +59,19 @@ namespace Composed.Query.Internal
             try
             {
                 var data = await _queryFunction().ConfigureAwait(false);
-                SetState(_ => new UnifiedQueryState<T>(QueryStatus.Success, data, null, null));
+                SetState(_ => new UnifiedQueryState(
+                    new QueryState<T>(QueryStatus.Success, _key, data, null),
+                    null
+                ));
             }
             catch (Exception ex)
             {
-                SetState(_ => new UnifiedQueryState<T>(QueryStatus.Error, default, ex, null));
+                SetState(_ => new UnifiedQueryState(
+                    new QueryState<T>(QueryStatus.Error, _key, default, ex),
+                    null
+                ));
             }
         });
-
-        public IDisposable Subscribe(Action<UnifiedQueryState<T>> onStateChanged)
-        {
-            lock (_lock)
-            {
-                if (_isDisposed)
-                {
-                    return Disposable.Empty;
-                }
-            }
-
-            var subscription = Watch(() => onStateChanged(_state.Value), ImmediateScheduler.Instance, _state);
-            var unsubscribe = Disposable.Create(() =>
-            {
-                subscription.Dispose();
-                Interlocked.Decrement(ref _activeSubscriptions);
-                Debug.Assert(_activeSubscriptions >= 0, "The active subscriptions should never fall below 0.");
-            });
-
-            Interlocked.Increment(ref _activeSubscriptions);
-            return unsubscribe;
-        }
 
         public void Dispose()
         {
@@ -93,7 +84,7 @@ namespace Composed.Query.Internal
                     return;
                 }
 
-                var disposedState = new UnifiedQueryState<T>(QueryStatus.Disabled, default, null, null);
+                var disposedState = new UnifiedQueryState(QueryState<T>.Disabled, null);
                 notify = _state.SetValue(disposedState, suppressNotification: true);
                 _isDisposed = true;
             }
@@ -104,7 +95,7 @@ namespace Composed.Query.Internal
             }
         }
 
-        private void SetState(Func<UnifiedQueryState<T>, UnifiedQueryState<T>> set)
+        private void SetState(Func<UnifiedQueryState, UnifiedQueryState> set)
         {
             var notify = false;
 
@@ -123,5 +114,7 @@ namespace Composed.Query.Internal
                 _state.Notify();
             }
         }
+
+        private sealed record UnifiedQueryState(QueryState<T> QueryState, Task? FetchingTask);
     }
 }
