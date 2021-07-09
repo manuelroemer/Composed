@@ -40,14 +40,6 @@ namespace Composed.Query.Internal
         /// </summary>
         public void Refetch()
         {
-            lock (_lock)
-            {
-                if (_isDisposed)
-                {
-                    return;
-                }
-            }
-
             SetState(state => state with
             {
                 Status = state.Status | QueryStatus.Fetching,

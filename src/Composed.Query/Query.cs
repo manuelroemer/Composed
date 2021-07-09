@@ -25,10 +25,12 @@ namespace Composed.Query
         private readonly QueryClient _client;
         private readonly QueryFunction<T> _queryFunction;
         private readonly IRef<QueryState<T>> _state;
-        private UnifiedQuery<T>? _unifiedQuery;
         private IDisposable? _watchDependenciesSubscription;
         private IDisposable? _watchUnifiedQuerySubscription;
         private bool _isDisposed;
+#pragma warning disable CA2213 // Disposable fields should be disposed. The UnifiedQuery lifetime is handled elsewhere.
+        private UnifiedQuery<T>? _unifiedQuery;
+#pragma warning restore CA2213
 
         /// <summary>
         ///     Gets the <see cref="QueryClient"/> with which the query is associated.
@@ -58,7 +60,6 @@ namespace Composed.Query
             _client = client;
             _queryFunction = queryFunction;
             _state = Ref(QueryState<T>.Disabled);
-
             _watchDependenciesSubscription = UseQueryKeyChangedHandler(getKey, dependencies);
         }
 
@@ -98,7 +99,8 @@ namespace Composed.Query
                         // new initial query state to the current state of that unified query.
                         // Since this query subscribed to the unified query it will receive any
                         // data updates from now on.
-                        var uqState = SubscribeToNewUnifiedQuery(newKey);
+                        SubscribeToNewUnifiedQuery(newKey);
+                        var uqState = _unifiedQuery.CurrentState;
                         var initialState = new QueryState<T>(uqState.Status, newKey, uqState.LastData, uqState.LastError);
                         notify = _state.SetValue(initialState, suppressNotification: true);
                     }
@@ -129,7 +131,7 @@ namespace Composed.Query
 
         [MemberNotNull(nameof(_unifiedQuery))]
         [MemberNotNull(nameof(_watchUnifiedQuerySubscription))]
-        private UnifiedQueryState<T> SubscribeToNewUnifiedQuery(QueryKey key)
+        private void SubscribeToNewUnifiedQuery(QueryKey key)
         {
             // Called from lock.
             UnsubscribeFromCurrentUnifiedQuery();
@@ -143,8 +145,6 @@ namespace Composed.Query
 
             _unifiedQuery = unifiedQuery;
             _watchUnifiedQuerySubscription = unifiedQuery.Subscribe(s => OnUnifiedQueryStateChanged(unifiedQuery, s));
-
-            return _unifiedQuery.CurrentState;
         }
 
         private void UnsubscribeFromCurrentUnifiedQuery()

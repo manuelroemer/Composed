@@ -237,7 +237,6 @@ namespace Composed.Query.Tests
 
             controlledQuery.ShouldBeInDisabledState();
             influencedQuery.ShouldBeInDisabledState();
-            controller.Verify(5);
         }
 
         [Fact]
