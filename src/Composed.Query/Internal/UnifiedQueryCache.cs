@@ -3,31 +3,58 @@ namespace Composed.Query.Internal
     using System;
     using System.Collections.Generic;
 
-    internal sealed class UnifiedQueryCache
+    internal sealed class UnifiedQueryCache : IDisposable
     {
-        // There's a reason for not using a ConcurrentDictionary here:
-        // Adding a new UnifiedQuery atomically is not possible with a ConcurrentDictionary, i.e.
-        // it could always happen that multiple new UnifiedQuery instances get created before one
-        // is being added to the dictionary.
-        // This should be avoided as creating a query immediately starts it.
-        //
-        // It's a bad reason which could be circumvented by allowing UnifiedQueries in an initial Disabled state,
-        // but for the moment it's more than sufficient and simply the easiest way to do this.
-        // May/Should be reworked in the future.
+        private readonly object _lock = new();
         private readonly Dictionary<UnifiedQueryCacheKey, object> _cache = new();
+        private bool _isDisposed;
 
         public UnifiedQuery<T> Get<T>(QueryKey queryKey, QueryFunction<T> queryFunction)
         {
-            lock (_cache)
+            lock (_lock)
             {
+                VerifyNotDisposed();
+
                 var cacheKey = new UnifiedQueryCacheKey(queryKey, queryFunction);
 
                 if (!_cache.ContainsKey(cacheKey))
                 {
-                    _cache.Add(cacheKey, new UnifiedQuery<T>(queryFunction));
+                    _cache.Add(cacheKey, UnifiedQuery<T>.Start(queryFunction));
                 }
 
                 return (UnifiedQuery<T>)_cache[cacheKey];
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_lock)
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                foreach (IDisposable unifiedQuery in _cache.Values)
+                {
+                    unifiedQuery.Dispose();
+                }
+
+                _cache.Clear();
+                _isDisposed = true;
+            }
+        }
+
+        private void VerifyNotDisposed()
+        {
+            if (_isDisposed)
+            {
+                throw new ObjectDisposedException(
+                    nameof(UnifiedQueryCache),
+                    "The query client's internal query cache has been disposed. " +
+                    "This happens when the query client itself is disposed. " +
+                    "Using the associated query client is not possible anymore."
+                );
             }
         }
 

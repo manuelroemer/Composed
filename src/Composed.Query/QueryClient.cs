@@ -4,7 +4,7 @@ namespace Composed.Query
     using System.Reactive;
     using Composed.Query.Internal;
 
-    public sealed class QueryClient
+    public sealed class QueryClient : IDisposable
     {
         /// <summary>
         ///     Gets the internal cache where all queries are managed.
@@ -28,5 +28,13 @@ namespace Composed.Query
             _ = dependencies ?? throw new ArgumentNullException(nameof(dependencies));
             return new Query<T>(this, getKey, queryFunction, dependencies);
         }
+
+        /// <summary>
+        ///     Disposes any resources used by this <see cref="QueryClient"/> instance.
+        ///     Disposing disables any active query created by the client and clears the entire
+        ///     query cache.
+        /// </summary>
+        public void Dispose() =>
+            UnifiedQueryCache.Dispose();
     }
 }

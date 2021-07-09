@@ -2,6 +2,7 @@ namespace Composed.Query.Internal
 {
     using System;
     using System.Diagnostics;
+    using System.Reactive.Concurrency;
     using System.Reactive.Disposables;
     using System.Threading;
     using System.Threading.Tasks;
@@ -15,71 +16,78 @@ namespace Composed.Query.Internal
         Task? FetchingTask
     );
 
-    internal sealed class UnifiedQuery<T>
+    /// <summary>
+    ///     A unified query.
+    ///     Unified queries essentially do the data fetching and error management of queries.
+    ///     Multiple queries with the same query key and query function share a single unified query.
+    /// </summary>
+    internal sealed class UnifiedQuery<T> : IDisposable
     {
         private readonly object _lock = new();
         private readonly QueryFunction<T> _queryFunction;
         private readonly IRef<UnifiedQueryState<T>> _state;
         private int _activeSubscriptions;
+        private bool _isDisposed;
 
         public UnifiedQueryState<T> CurrentState => _state.Value;
 
-        public UnifiedQuery(QueryFunction<T> queryFunction)
+        private UnifiedQuery(QueryFunction<T> queryFunction)
         {
             _queryFunction = queryFunction;
-            _state = Ref(new UnifiedQueryState<T>(QueryStatus.Fetching, default, null, FetchAndSetStateAsync()));
+            _state = Ref(new UnifiedQueryState<T>(QueryStatus.Fetching, default, null, null));
+            Refetch();
         }
 
+        /// <summary>
+        ///     Creates a new unified query which immediately starts fetching data.
+        /// </summary>
+        public static UnifiedQuery<T> Start(QueryFunction<T> queryFunction) =>
+            new UnifiedQuery<T>(queryFunction);
+
+        /// <summary>
+        ///     If the unified query isn't fetching data at the moment, triggers a refetch of that data.
+        /// </summary>
         public void Refetch()
         {
+            lock (_lock)
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+            }
+
             SetState(state => state with
             {
                 Status = state.Status | QueryStatus.Fetching,
-                FetchingTask = state.FetchingTask ?? FetchAndSetStateAsync(),
+                FetchingTask = state.FetchingTask ?? Task.Run(() => FetchAndSetStateAsync()),
             });
         }
 
         private async Task FetchAndSetStateAsync()
         {
-            T? data = default;
-            Exception? error = null;
-
             try
             {
-                data = await _queryFunction().ConfigureAwait(false);
+                var data = await _queryFunction().ConfigureAwait(false);
+                SetState(_ => new UnifiedQueryState<T>(QueryStatus.Success, data, null, null));
             }
             catch (Exception ex)
             {
-                error = ex;
-            }
-
-            SetState(state => state with
-            {
-                Status = error is null ? QueryStatus.Success : QueryStatus.Error,
-                FetchingTask = null,
-                LastData = data,
-                LastError = error,
-            });
-        }
-
-        private void SetState(Func<UnifiedQueryState<T>, UnifiedQueryState<T>> set)
-        {
-            var notify = false;
-
-            lock (_lock)
-            {
-                notify = _state.SetValue(set(_state.Value), suppressNotification: true);
-            }
-
-            if (notify)
-            {
-                _state.Notify();
+                SetState(_ => new UnifiedQueryState<T>(QueryStatus.Error, default, ex, null));
             }
         }
 
         public IDisposable Subscribe(Action<UnifiedQueryState<T>> onStateChanged)
         {
-            var subscription = Watch(() => onStateChanged(_state.Value), _state);
+            lock (_lock)
+            {
+                if (_isDisposed)
+                {
+                    return Disposable.Empty;
+                }
+            }
+
+            var subscription = Watch(() => onStateChanged(_state.Value), ImmediateScheduler.Instance, _state);
             var unsubscribe = Disposable.Create(() =>
             {
                 subscription.Dispose();
@@ -89,6 +97,48 @@ namespace Composed.Query.Internal
 
             Interlocked.Increment(ref _activeSubscriptions);
             return unsubscribe;
+        }
+
+        public void Dispose()
+        {
+            var notify = false;
+
+            lock (_lock)
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                var disposedState = new UnifiedQueryState<T>(QueryStatus.Disabled, default, null, null);
+                notify = _state.SetValue(disposedState, suppressNotification: true);
+                _isDisposed = true;
+            }
+
+            if (notify)
+            {
+                _state.Notify();
+            }
+        }
+
+        private void SetState(Func<UnifiedQueryState<T>, UnifiedQueryState<T>> set)
+        {
+            var notify = false;
+
+            lock (_lock)
+            {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
+                notify = _state.SetValue(set(_state.Value), suppressNotification: true);
+            }
+
+            if (notify)
+            {
+                _state.Notify();
+            }
         }
     }
 }

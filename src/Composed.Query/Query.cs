@@ -84,7 +84,7 @@ namespace Composed.Query
                     {
                         return;
                     }
-
+                    
                     if (newKey is null)
                     {
                         // No valid key means that the query will be disabled.
@@ -98,11 +98,9 @@ namespace Composed.Query
                         // new initial query state to the current state of that unified query.
                         // Since this query subscribed to the unified query it will receive any
                         // data updates from now on.
-                        SubscribeToNewUnifiedQuery(newKey);
-
-                        var uqState = _unifiedQuery.CurrentState;
-                        var newState = new QueryState<T>(uqState.Status, newKey, uqState.LastData, uqState.LastError);
-                        notify = _state.SetValue(newState, suppressNotification: true);
+                        var uqState = SubscribeToNewUnifiedQuery(newKey);
+                        var initialState = new QueryState<T>(uqState.Status, newKey, uqState.LastData, uqState.LastError);
+                        notify = _state.SetValue(initialState, suppressNotification: true);
                     }
                 }
 
@@ -114,6 +112,8 @@ namespace Composed.Query
 
         private static QueryKey? GetQueryKeyUsingProviderFn(QueryKeyProvider provider)
         {
+            // Called from lock.
+
             // We generally allow the query key provider functions to throw.
             // This is inspired by SWR and actually leads to a much better user experience
             // because you can entirely disregard things like null checks for missing data.
@@ -129,8 +129,9 @@ namespace Composed.Query
 
         [MemberNotNull(nameof(_unifiedQuery))]
         [MemberNotNull(nameof(_watchUnifiedQuerySubscription))]
-        private void SubscribeToNewUnifiedQuery(QueryKey key)
+        private UnifiedQueryState<T> SubscribeToNewUnifiedQuery(QueryKey key)
         {
+            // Called from lock.
             UnsubscribeFromCurrentUnifiedQuery();
 
             var cache = _client.UnifiedQueryCache;
@@ -141,19 +142,53 @@ namespace Composed.Query
             unifiedQuery.Refetch();
 
             _unifiedQuery = unifiedQuery;
-            _watchUnifiedQuerySubscription = unifiedQuery.Subscribe(OnUnifiedQueryStateChanged);
+            _watchUnifiedQuerySubscription = unifiedQuery.Subscribe(s => OnUnifiedQueryStateChanged(unifiedQuery, s));
+
+            return _unifiedQuery.CurrentState;
         }
 
         private void UnsubscribeFromCurrentUnifiedQuery()
         {
+            // Called from lock.
             _unifiedQuery = null;
             _watchUnifiedQuerySubscription?.Dispose();
             _watchUnifiedQuerySubscription = null;
         }
 
-        private void OnUnifiedQueryStateChanged(UnifiedQueryState<T> uqState)
+        private void OnUnifiedQueryStateChanged(UnifiedQuery<T> unifiedQuery, UnifiedQueryState<T> uqState)
         {
-            SetState(state => new QueryState<T>(uqState.Status, state.Key, uqState.LastData, uqState.LastError));
+            var notify = false;
+
+            lock (_lock)
+            {
+                // Due to threading, this handler can be invoked:
+                // - after disposal
+                // - after a query key change (which would have changed _unifiedQuery).
+                // In either case, the state shouldn't change then.
+                if (_unifiedQuery != unifiedQuery || _isDisposed)
+                {
+                    return;
+                }
+
+                // When the underlying unified query is disabled it means that it was manually disposed
+                // via the query client (auto disposal is not possible with active subscriptions).
+                // In such a case, also transitively dispose this query as the query client is unusable.
+                if (uqState.Status == QueryStatus.Disabled)
+                {
+                    Dispose();
+                    return;
+                }
+
+                notify = _state.SetValue(
+                    new QueryState<T>(uqState.Status, _state.Value.Key, uqState.LastData, uqState.LastError),
+                    suppressNotification: true
+                );
+            }
+
+            if (notify)
+            {
+                _state.Notify();
+            }
         }
 
         /// <summary>
@@ -204,27 +239,5 @@ namespace Composed.Query
         /// <inheritdoc/>
         public override string ToString() =>
             State.Value.ToString();
-
-        private void SetState(Func<QueryState<T>, QueryState<T>> set)
-        {
-            var notify = false;
-
-            lock (_lock)
-            {
-                // Disposal race condition:
-                // Since this can be invoked from callbacks we can end up here post disposal.
-                if (_isDisposed)
-                {
-                    return;
-                }
-
-                notify = _state.SetValue(set(_state.Value), suppressNotification: true);
-            }
-
-            if (notify)
-            {
-                _state.Notify();
-            }
-        }
     }
 }
