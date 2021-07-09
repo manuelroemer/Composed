@@ -19,7 +19,7 @@ namespace Composed.Query.Internal
 
                 if (!_cache.ContainsKey(cacheKey))
                 {
-                    _cache.Add(cacheKey, UnifiedQuery<T>.Start(queryFunction));
+                    _cache.Add(cacheKey, new UnifiedQuery<T>(queryFunction));
                 }
 
                 return (UnifiedQuery<T>)_cache[cacheKey];

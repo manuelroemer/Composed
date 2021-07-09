@@ -40,8 +40,9 @@ namespace Composed.Query.Tests
         [Fact]
         public void ToString_ReturnsQueryStateStringRepresentation()
         {
+            var controller = new QueryFunctionController<int>();
             using var client = new QueryClient();
-            using var query = client.CreateQuery(GetKey(), () => Task.FromResult(0));
+            using var query = client.CreateQuery(GetKey(), controller.Function);
             query.ToString().ShouldBe(query.State.Value.ToString());
         }
 
@@ -73,23 +74,6 @@ namespace Composed.Query.Tests
             controller.Verify(0);
         }
 
-        [Fact]
-        public void Initialization_SuccessfulSynchronousQueryFunction_InitializesQueryInSuccessState()
-        {
-            using var client = new QueryClient();
-            using var query = client.CreateQuery(GetKey(), () => Task.FromResult(123));
-            query.ShouldBeInSuccessState(key: GetKey(), 123);
-        }
-
-        [Fact]
-        public void Initialization_ErroredSynchronousQueryFunction_InitializesQueryInSuccessState()
-        {
-            var error = new Exception();
-            using var client = new QueryClient();
-            using var query = client.CreateQuery(GetKey(), () => Task.FromException<int>(error));
-            query.ShouldBeInErrorState(key: GetKey(), error);
-        }
-
         #endregion
 
         #region Query Flows
@@ -104,7 +88,7 @@ namespace Composed.Query.Tests
 
             // -> Loading
             query.ShouldBeInLoadingState(key: GetKey());
-            controller.Verify(1);
+
 
             // Loading -> Success
             await controller.ReturnAndWaitForStateChange(query, 123);
@@ -112,12 +96,13 @@ namespace Composed.Query.Tests
             query.ShouldBeInSuccessState(key: GetKey(), data: 123);
             controller.Verify(1);
 
+
             // Success -> FetchingSuccess
             controller.Reset();
             query.Refetch();
 
             query.ShouldBeInFetchingSuccessState(key: GetKey(), data: 123);
-            controller.Verify(2);
+
 
             // FetchingSuccess -> Success
             await controller.ReturnAndWaitForStateChange(query, 456);
@@ -125,12 +110,13 @@ namespace Composed.Query.Tests
             query.ShouldBeInSuccessState(key: GetKey(), data: 456);
             controller.Verify(2);
 
+
             // Success -> FetchingSuccess
             controller.Reset();
             query.Refetch();
 
             query.ShouldBeInFetchingSuccessState(key: GetKey(), data: 456);
-            controller.Verify(3);
+
 
             // FetchingSuccess -> Error
             await controller.ThrowAndWaitForStateChange(query, error);
@@ -138,18 +124,20 @@ namespace Composed.Query.Tests
             query.ShouldBeInErrorState(key: GetKey(), error);
             controller.Verify(3);
 
+
             // Error -> FetchingError
             controller.Reset();
             query.Refetch();
 
             query.ShouldBeInFetchingErrorState(key: GetKey(), error);
-            controller.Verify(4);
+
 
             // FetchingError -> Success
             await controller.ReturnAndWaitForStateChange(query, 789);
 
             query.ShouldBeInSuccessState(key: GetKey(), 789);
             controller.Verify(4);
+
 
             // Success -> Disabled
             query.Dispose();
@@ -172,7 +160,6 @@ namespace Composed.Query.Tests
             // -> Loading
             controlledQuery.ShouldBeInLoadingState(key: GetKey());
             influencedQuery.ShouldBeInLoadingState(key: GetKey());
-            controller.Verify(1);
 
             // Loading -> Success
             await controller.ReturnAndWaitForStateChange(queries, 123);
@@ -187,7 +174,7 @@ namespace Composed.Query.Tests
 
             controlledQuery.ShouldBeInFetchingSuccessState(key: GetKey(), data: 123);
             influencedQuery.ShouldBeInFetchingSuccessState(key: GetKey(), data: 123);
-            controller.Verify(2);
+
 
             // FetchingSuccess -> Success
             await controller.ReturnAndWaitForStateChange(queries, 456);
@@ -196,13 +183,14 @@ namespace Composed.Query.Tests
             influencedQuery.ShouldBeInSuccessState(key: GetKey(), data: 456);
             controller.Verify(2);
 
+
             // Success -> FetchingSuccess
             controller.Reset();
             controlledQuery.Refetch();
 
             controlledQuery.ShouldBeInFetchingSuccessState(key: GetKey(), data: 456);
             influencedQuery.ShouldBeInFetchingSuccessState(key: GetKey(), data: 456);
-            controller.Verify(3);
+
 
             // FetchingSuccess -> Error
             await controller.ThrowAndWaitForStateChange(queries, error);
@@ -211,13 +199,14 @@ namespace Composed.Query.Tests
             influencedQuery.ShouldBeInErrorState(key: GetKey(), error);
             controller.Verify(3);
 
+
             // Error -> FetchingError
             controller.Reset();
             controlledQuery.Refetch();
 
             controlledQuery.ShouldBeInFetchingErrorState(key: GetKey(), error);
             influencedQuery.ShouldBeInFetchingErrorState(key: GetKey(), error);
-            controller.Verify(4);
+
 
             // FetchingError -> Success
             await controller.ReturnAndWaitForStateChange(queries, 789);
@@ -226,11 +215,13 @@ namespace Composed.Query.Tests
             influencedQuery.ShouldBeInSuccessState(key: GetKey(), 789);
             controller.Verify(4);
 
+
             // Success -> Disabled (Influenced)
             influencedQuery.Dispose();
 
             controlledQuery.ShouldBeInSuccessState(key: GetKey(), 789);
             influencedQuery.ShouldBeInDisabledState();
+
 
             // Success -> FetchingSuccess (Controlled)
             controller.Reset();
@@ -238,7 +229,7 @@ namespace Composed.Query.Tests
 
             controlledQuery.ShouldBeInFetchingSuccessState(key: GetKey(), 789);
             influencedQuery.ShouldBeInDisabledState();
-            controller.Verify(5);
+
 
             // FetchingSuccess -> Disabled (Controlled)
             controlledQuery.Dispose();

@@ -9,12 +9,7 @@ namespace Composed.Query.Internal
     using Composed;
     using static Composed.Compose;
 
-    internal sealed record UnifiedQueryState<T>(
-        QueryStatus Status,
-        T? LastData,
-        Exception? LastError,
-        Task? FetchingTask
-    );
+    internal sealed record UnifiedQueryState<T>(QueryStatus Status, T? LastData, Exception? LastError, Task? FetchingTask);
 
     /// <summary>
     ///     A unified query.
@@ -31,18 +26,14 @@ namespace Composed.Query.Internal
 
         public UnifiedQueryState<T> CurrentState => _state.Value;
 
-        private UnifiedQuery(QueryFunction<T> queryFunction)
-        {
-            _queryFunction = queryFunction;
-            _state = Ref(new UnifiedQueryState<T>(QueryStatus.Fetching, default, null, null));
-            Refetch();
-        }
-
         /// <summary>
         ///     Creates a new unified query which immediately starts fetching data.
         /// </summary>
-        public static UnifiedQuery<T> Start(QueryFunction<T> queryFunction) =>
-            new UnifiedQuery<T>(queryFunction);
+        public UnifiedQuery(QueryFunction<T> queryFunction)
+        {
+            _queryFunction = queryFunction;
+            _state = Ref(new UnifiedQueryState<T>(QueryStatus.Fetching, default, null, FetchAndSetStateAsync()));
+        }
 
         /// <summary>
         ///     If the unified query isn't fetching data at the moment, triggers a refetch of that data.
@@ -60,11 +51,11 @@ namespace Composed.Query.Internal
             SetState(state => state with
             {
                 Status = state.Status | QueryStatus.Fetching,
-                FetchingTask = state.FetchingTask ?? Task.Run(() => FetchAndSetStateAsync()),
+                FetchingTask = state.FetchingTask ?? FetchAndSetStateAsync(),
             });
         }
 
-        private async Task FetchAndSetStateAsync()
+        private Task FetchAndSetStateAsync() => Task.Run(async () =>
         {
             try
             {
@@ -75,7 +66,7 @@ namespace Composed.Query.Internal
             {
                 SetState(_ => new UnifiedQueryState<T>(QueryStatus.Error, default, ex, null));
             }
-        }
+        });
 
         public IDisposable Subscribe(Action<UnifiedQueryState<T>> onStateChanged)
         {
