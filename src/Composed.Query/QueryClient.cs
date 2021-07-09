@@ -4,6 +4,11 @@ namespace Composed.Query
     using System.Reactive;
     using Composed.Query.Internal;
 
+    /// <summary>
+    ///     The <see cref="QueryClient"/> class creates and manages <see cref="Query{T}"/> objects.
+    ///     Queries created via the same <see cref="QueryClient"/> instance benefit from
+    ///     automatic data caching and query de-duplication.
+    /// </summary>
     public sealed class QueryClient : IDisposable
     {
         /// <summary>
@@ -11,12 +16,57 @@ namespace Composed.Query
         /// </summary>
         internal UnifiedQueryCache UnifiedQueryCache { get; } = new();
 
+        /// <summary>
+        ///     Creates and returns a new <see cref="Query{T}"/> with a query key that does not
+        ///     change over the lifetime of the query.
+        /// </summary>
+        /// <typeparam name="T">
+        ///     The type of the data returned by the query.
+        /// </typeparam>
+        /// <param name="key">
+        ///     The query key which uniquely identifies the query.
+        /// </param>
+        /// <param name="queryFunction">
+        ///     The query function which, when invoked, fetches the query's data.
+        /// </param>
+        /// <returns>
+        ///     A new <see cref="Query{T}"/> instance which (re-)fetches its data.
+        /// </returns>
         public Query<T> CreateQuery<T>(QueryKey key, QueryFunction<T> queryFunction)
         {
             _ = key ?? throw new ArgumentNullException(nameof(key));
             return CreateQuery(() => key, queryFunction);
         }
 
+        /// <summary>
+        ///     Creates and returns a new <see cref="Query{T}"/> whose query key is automatically
+        ///     reevaluated over its lifetime whenever one of the given <paramref name="dependencies"/>
+        ///     changes.
+        /// </summary>
+        /// <typeparam name="T">
+        ///     The type of the data returned by the query.
+        /// </typeparam>
+        /// <param name="getKey">
+        ///     A <see cref="QueryKeyProvider"/> function which, when invoked, returns the query key
+        ///     to be used by the query.
+        /// </param>
+        /// <param name="queryFunction">
+        ///     The query function which, when invoked, fetches the query's data.
+        /// </param>
+        /// <param name="dependencies">
+        ///     <para>
+        ///         A set of dependencies which will be watched for changes and, when changed, trigger
+        ///         a reevaluation of the <paramref name="getKey"/> function.
+        ///         This can be any kind of observable. <see cref="IRef{T}"/> and <see cref="IReadOnlyRef{T}"/> instances
+        ///         implement <see cref="IObservable{T}"/> and can directly be passed as dependencies.
+        ///     </para>
+        ///     <para>
+        ///         If this is empty, the query's key will never change over the query's lifetime.
+        ///     </para>
+        /// </param>
+        /// <returns>
+        ///     A new <see cref="Query{T}"/> instance which (re-)fetches its data.
+        /// </returns>
         public Query<T> CreateQuery<T>(
             QueryKeyProvider getKey,
             QueryFunction<T> queryFunction,
