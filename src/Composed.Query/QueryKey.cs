@@ -6,8 +6,7 @@ namespace Composed.Query
 
     /// <summary>
     ///     <para>
-    ///         Represents a key which, together with a <see cref="QueryFunction{T}"/>, uniquely
-    ///         identifies a query.
+    ///         Represents a key which, together with a query function, uniquely identifies a query.
     ///     </para>
     ///     <para>
     ///         A query key is similar to an array of objects in the sense that it is composed of

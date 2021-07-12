@@ -11,10 +11,39 @@ namespace Composed.Query
     /// </summary>
     public sealed class QueryClient : IDisposable
     {
+        private readonly QueryClientOptions _options;
+
         /// <summary>
         ///     Gets the internal cache where all queries are managed.
         /// </summary>
-        internal UnifiedQueryCache UnifiedQueryCache { get; } = new();
+        internal SharedQueryCache SharedQueryCache { get; }
+
+        /// <summary>
+        ///     Initializes a new <see cref="QueryClient"/> instance with default options.
+        /// </summary>
+        public QueryClient()
+            : this(null) { }
+
+        /// <summary>
+        ///     Initializes a new <see cref="QueryClient"/> instance with the specified <paramref name="options"/>.
+        /// </summary>
+        /// <param name="options">
+        ///     Options which further configure the query client.
+        ///     If <see langword="null"/>, default options are used.
+        /// </param>
+        public QueryClient(QueryClientOptions? options)
+        {
+            _options = (options ?? new()).CloneWithDefaultFallbacks();
+            SharedQueryCache = new SharedQueryCache(_options.CacheInvalidatorFactory!);
+        }
+
+        /// <inheritdoc cref="CreateQuery{T}(QueryKey, CancelableQueryFunction{T})"/>
+        public Query<T> CreateQuery<T>(QueryKey key, QueryFunction<T> queryFunction)
+        {
+            _ = key ?? throw new ArgumentNullException(nameof(key));
+            _ = queryFunction ?? throw new ArgumentNullException(nameof(queryFunction));
+            return CreateQuery(() => key, _ => queryFunction());
+        }
 
         /// <summary>
         ///     Creates and returns a new <see cref="Query{T}"/> with a query key that does not
@@ -32,10 +61,21 @@ namespace Composed.Query
         /// <returns>
         ///     A new <see cref="Query{T}"/> instance which (re-)fetches its data.
         /// </returns>
-        public Query<T> CreateQuery<T>(QueryKey key, QueryFunction<T> queryFunction)
+        public Query<T> CreateQuery<T>(QueryKey key, CancelableQueryFunction<T> queryFunction)
         {
             _ = key ?? throw new ArgumentNullException(nameof(key));
             return CreateQuery(() => key, queryFunction);
+        }
+
+        /// <inheritdoc cref="CreateQuery{T}(QueryKeyProvider, CancelableQueryFunction{T}, IObservable{Unit}[])"/>
+        public Query<T> CreateQuery<T>(
+            QueryKeyProvider getKey,
+            QueryFunction<T> queryFunction,
+            params IObservable<Unit>[] dependencies
+        )
+        {
+            _ = queryFunction ?? throw new ArgumentNullException(nameof(queryFunction));
+            return CreateQuery(getKey, _ => queryFunction(), dependencies);
         }
 
         /// <summary>
@@ -69,7 +109,7 @@ namespace Composed.Query
         /// </returns>
         public Query<T> CreateQuery<T>(
             QueryKeyProvider getKey,
-            QueryFunction<T> queryFunction,
+            CancelableQueryFunction<T> queryFunction,
             params IObservable<Unit>[] dependencies
         )
         {
@@ -85,6 +125,6 @@ namespace Composed.Query
         ///     query cache.
         /// </summary>
         public void Dispose() =>
-            UnifiedQueryCache.Dispose();
+            SharedQueryCache.Dispose();
     }
 }

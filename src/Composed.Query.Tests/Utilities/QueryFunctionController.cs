@@ -3,6 +3,7 @@ namespace Composed.Query.Tests.Utilities
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using Composed.Query;
     using Moq;
@@ -11,14 +12,14 @@ namespace Composed.Query.Tests.Utilities
     {
         private TaskCompletionSource<T> _tcs = new();
 
-        public Mock<QueryFunction<T>> FunctionMock { get; }
+        public Mock<CancelableQueryFunction<T>> FunctionMock { get; }
 
-        public QueryFunction<T> Function => FunctionMock.Object;
+        public CancelableQueryFunction<T> Function => FunctionMock.Object;
 
         public QueryFunctionController()
         {
-            FunctionMock = new Mock<QueryFunction<T>>();
-            FunctionMock.Setup(fn => fn()).Returns(() => _tcs.Task);
+            FunctionMock = new Mock<CancelableQueryFunction<T>>();
+            FunctionMock.Setup(fn => fn(It.IsAny<CancellationToken>())).Returns(() => _tcs.Task);
         }
 
         public Task ReturnAndWaitForStateChange(Query<T> query, T result = default!, int timeoutMs = 5000) =>
@@ -54,6 +55,6 @@ namespace Composed.Query.Tests.Utilities
         }
 
         public void Verify(int queryFunctionCallCount) =>
-            FunctionMock.Verify(fn => fn(), Times.Exactly(queryFunctionCallCount));
+            FunctionMock.Verify(fn => fn(It.IsAny<CancellationToken>()), Times.Exactly(queryFunctionCallCount));
     }
 }

@@ -18,10 +18,10 @@ namespace Composed.Query.Tests
             using var client = new QueryClient();
 
             Should.Throw<ArgumentNullException>(() => client.CreateQuery((QueryKey)null!, () => Task.FromResult(123)));
-            Should.Throw<ArgumentNullException>(() => client.CreateQuery(new QueryKey(), (QueryFunction<int>)null!));
+            Should.Throw<ArgumentNullException>(() => client.CreateQuery(new QueryKey(), (CancelableQueryFunction<int>)null!));
 
             Should.Throw<ArgumentNullException>(() => client.CreateQuery((QueryKeyProvider)null!, () => Task.FromResult(123)));
-            Should.Throw<ArgumentNullException>(() => client.CreateQuery(() => new QueryKey(), (QueryFunction<int>)null!));
+            Should.Throw<ArgumentNullException>(() => client.CreateQuery(() => new QueryKey(), (CancelableQueryFunction<int>)null!));
             Should.Throw<ArgumentNullException>(() => client.CreateQuery(() => new QueryKey(), () => Task.FromResult(123), (IObservable<Unit>[])null!));
         }
 

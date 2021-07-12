@@ -23,8 +23,6 @@ namespace Composed.Query
             QueryStatus.Fetching | QueryStatus.Error,
         };
 
-        internal static readonly QueryState<T> Disabled = new(QueryStatus.Disabled, null, default, null);
-
         private readonly int _hashCode;
 
         /// <summary>
@@ -52,6 +50,20 @@ namespace Composed.Query
         ///     </para>
         /// </remarks>
         public QueryStatus Status { get; }
+
+        /// <summary>
+        ///     Gets a value indicating whether the query has any data which can be processed (independent of whether
+        ///     its <see cref="Status"/> is <see cref="QueryStatus.Success"/> or <see cref="QueryStatus.Error"/>).
+        /// </summary>
+        /// <returns>
+        ///     <see langword="true"/> if <see cref="Data"/> is not <see langword="null"/>;
+        ///     <see langword="false"/> otherwise.
+        /// </returns>
+        [MemberNotNullWhen(true, nameof(Key))]
+        [MemberNotNullWhen(true, nameof(Data))]
+        // ^ This is incorrect if T is nullable, but this is expected to be rare.
+        // For all other cases, this is helpful (and true), hence the annotation is added despite potentially being wrong.
+        public bool HasData { get; }
 
         /// <summary>
         ///     Gets the data fetched by the query.
@@ -118,7 +130,8 @@ namespace Composed.Query
         ///     <see langword="false"/> if not.
         /// </returns>
         [MemberNotNullWhen(true, nameof(Key))]
-        public bool HasData => Status.HasFlag(QueryStatus.Success);
+        [MemberNotNullWhen(true, nameof(Data))]
+        public bool IsSuccess => Status.HasFlag(QueryStatus.Success);
 
         /// <summary>
         ///     Gets a value indicating whether the query encountered an error while fetching data.
@@ -129,7 +142,20 @@ namespace Composed.Query
         /// </returns>
         [MemberNotNullWhen(true, nameof(Key))]
         [MemberNotNullWhen(true, nameof(Error))]
-        public bool HasError => Status.HasFlag(QueryStatus.Error);
+        public bool IsError => Status.HasFlag(QueryStatus.Error);
+
+        /// <summary>
+        ///     Gets a value indicating whether the query has an error while also not having any
+        ///     stale data from previous fetching attempts.
+        /// </summary>
+        /// <returns>
+        ///     <see langword="true"/> if <see cref="Data"/> is <see langword="null"/>
+        ///     and <see cref="IsError"/> is <see langword="true"/>;
+        ///     <see langword="false"/> otherwise.
+        /// </returns>
+        [MemberNotNullWhen(true, nameof(Key))]
+        [MemberNotNullWhen(true, nameof(Error))]
+        public bool HasErrorWithoutData => IsError && !HasData;
 
         /// <summary>
         ///     Initializes a new <see cref="QueryState{T}"/> instance with the given values.
@@ -142,6 +168,15 @@ namespace Composed.Query
         ///     <see langword="null"/> if the query is disabled and therefore does not have
         ///     an associated query key.
         /// </param>
+        /// <param name="hasData">
+        ///     <para>
+        ///         Whether the query has any data which can be processed (independent of whether
+        ///         its <see cref="Status"/> is <see cref="QueryStatus.Success"/> or <see cref="QueryStatus.Error"/>).
+        ///     </para>
+        ///     <para>
+        ///         If <see langword="true"/>, <paramref name="data"/> must be <see langword="default"/>.
+        ///     </para>
+        /// </param>
         /// <param name="data">
         ///     The data fetched by the query.
         /// </param>
@@ -151,7 +186,7 @@ namespace Composed.Query
         /// <exception cref="ArgumentException">
         ///     Thrown for any invalid combination of the constructor arguments.
         /// </exception>
-        public QueryState(QueryStatus status, QueryKey? key, T? data, Exception? error)
+        public QueryState(QueryStatus status, QueryKey? key, bool hasData, T? data, Exception? error)
         {
             if (!ValidStatuses.Contains(status))
             {
@@ -167,6 +202,11 @@ namespace Composed.Query
                     throw new ArgumentException("A query in the Disabled state must not have a key.", nameof(key));
                 }
 
+                if (hasData)
+                {
+                    throw new ArgumentException("A query in the Disabled state must not have any data.", nameof(hasData));
+                }
+
                 if (!Equals(data, default(T)))
                 {
                     throw new ArgumentException("A query in the Disabled state must not have any data.", nameof(data));
@@ -178,19 +218,6 @@ namespace Composed.Query
                 }
             }
 
-            if (status == QueryStatus.Fetching)
-            {
-                if (!Equals(data, default(T)))
-                {
-                    throw new ArgumentException("A query in the Fetching state must not have any data.", nameof(data));
-                }
-
-                if (error is not null)
-                {
-                    throw new ArgumentException("A query in the Fetching state must not have an error.", nameof(error));
-                }
-            }
-
             if (status != QueryStatus.Disabled)
             {
                 if (key is null)
@@ -199,8 +226,31 @@ namespace Composed.Query
                 }
             }
 
+            if (status == QueryStatus.Fetching)
+            {
+                if (hasData)
+                {
+                    throw new ArgumentException("A query in the initial Fetching state must not have any data.", nameof(hasData));
+                }
+
+                if (!Equals(data, default(T)))
+                {
+                    throw new ArgumentException("A query in the initial Fetching state must not have any data.", nameof(data));
+                }
+
+                if (error is not null)
+                {
+                    throw new ArgumentException("A query in the initial Fetching state must not have an error.", nameof(error));
+                }
+            }
+
             if (status.HasFlag(QueryStatus.Success))
             {
+                if (!hasData)
+                {
+                    throw new ArgumentException("A query in the Success state must have data.", nameof(hasData));
+                }
+
                 if (error is not null)
                 {
                     throw new ArgumentException("A query in the Success state must not have an error.", nameof(error));
@@ -209,22 +259,23 @@ namespace Composed.Query
 
             if (status.HasFlag(QueryStatus.Error))
             {
-                if (!Equals(data, default(T)))
-                {
-                    throw new ArgumentException("A query in the Error state must not have any data.", nameof(data));
-                }
-
                 if (error is null)
                 {
                     throw new ArgumentNullException(nameof(error), "A query in the Error state must have an error.");
                 }
             }
 
+            if (!hasData && !Equals(data, default(T)))
+            {
+                throw new ArgumentException("A query's data must be the default data value if it doesn't have any data.", nameof(data));
+            }
+
             Key = key;
             Status = status;
+            HasData = hasData;
             Data = data;
             Error = error;
-            _hashCode = HashCode.Combine(Status, Key, Data, Error);
+            _hashCode = HashCode.Combine(Status, Key, HasData, Data, Error);
         }
 
         /// <inheritdoc/>
@@ -236,6 +287,7 @@ namespace Composed.Query
             other is not null &&
             Equals(other.Status, Status) &&
             Equals(other.Key, Key) &&
+            Equals(other.HasData, HasData) &&
             Equals(other.Data, Data) &&
             Equals(other.Error, Error);
 
@@ -245,12 +297,52 @@ namespace Composed.Query
 
         /// <inheritdoc/>
         public override string ToString() =>
-            $"{nameof(QueryState<T>)} {{ {nameof(Status)} = {Status}, {nameof(Key)} = {Key}, {nameof(Data)} = {Data}, {nameof(Error)} = {Error} }}";
+            $"{nameof(QueryState<T>)} {{ {nameof(Status)} = {Status}, {nameof(Key)} = {Key}, {nameof(HasData)} = {HasData}, {nameof(Data)} = {Data}, {nameof(Error)} = {Error} }}";
 
         public static bool operator ==(QueryState<T>? left, QueryState<T>? right) =>
             left is null ? right is null : left.Equals(right);
 
         public static bool operator !=(QueryState<T>? left, QueryState<T>? right) =>
             !(left == right);
+
+
+        // The following are state transitions and values which are used internally (mainly by the SharedQuery).
+        // They are placed here so that the respective files are slimmer.
+
+        internal static readonly QueryState<T> Disabled = new(QueryStatus.Disabled, null, false, default, null);
+
+        internal static QueryState<T> Loading(QueryKey key) =>
+            new QueryState<T>(QueryStatus.Fetching, key, false, default, null);
+
+        internal QueryState<T> WithRefetching() =>
+            new QueryState<T>(Status | QueryStatus.Fetching, Key, HasData, Data, Error);
+
+        internal QueryState<T> WithSuccess(T data) =>
+            new QueryState<T>(QueryStatus.Success, Key, true, data, null);
+
+        internal QueryState<T> WithError(Exception error) =>
+            new QueryState<T>(QueryStatus.Error, Key, HasData, Data, error);
+
+        internal QueryState<T> WithManuallySetError(Exception error) =>
+            new QueryState<T>(
+                IsFetching
+                    ? QueryStatus.Fetching | QueryStatus.Error
+                    : QueryStatus.Error,
+                Key,
+                HasData,
+                Data,
+                error
+            );
+
+        internal QueryState<T> WithManuallySetData(T data) =>
+            new QueryState<T>(
+                IsFetching
+                    ? QueryStatus.Fetching | QueryStatus.Success
+                    : QueryStatus.Success,
+                Key,
+                true,
+                data,
+                null
+            );
     }
 }

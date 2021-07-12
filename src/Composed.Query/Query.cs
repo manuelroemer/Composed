@@ -5,6 +5,7 @@ namespace Composed.Query
     using System.Diagnostics.CodeAnalysis;
     using System.Reactive;
     using System.Reactive.Concurrency;
+    using System.Threading.Tasks;
     using Composed;
     using Composed.Query.Internal;
     using static Composed.Compose;
@@ -23,13 +24,13 @@ namespace Composed.Query
     {
         private readonly object _lock = new();
         private readonly QueryClient _client;
-        private readonly QueryFunction<T> _queryFunction;
+        private readonly CancelableQueryFunction<T> _queryFunction;
         private readonly IRef<QueryState<T>> _state;
         private IDisposable? _watchDependenciesSubscription;
-        private IDisposable? _rentUnifiedQuerySubscription;
-        private IDisposable? _watchUnifiedQuerySubscription;
+        private IDisposable? _rentSharedQuerySubscription;
+        private IDisposable? _watchSharedQuerySubscription;
         private bool _isDisposed;
-        private UnifiedQuery<T>? _unifiedQuery;
+        private SharedQuery<T>? _sharedQuery;
 
         /// <summary>
         ///     Gets the <see cref="QueryClient"/> with which the query is associated.
@@ -52,7 +53,7 @@ namespace Composed.Query
         internal Query(
             QueryClient client,
             QueryKeyProvider getKey,
-            QueryFunction<T> queryFunction,
+            CancelableQueryFunction<T> queryFunction,
             IObservable<Unit>[] dependencies
         )
         {
@@ -79,7 +80,7 @@ namespace Composed.Query
 
                     // If the key didn't change there is no need to do any work as the query is already either:
                     // 1) disabled or
-                    // 2) using the correct unified query.
+                    // 2) using the correct shared query.
                     if (newKey == _state.Value.Key)
                     {
                         return;
@@ -88,18 +89,18 @@ namespace Composed.Query
                     if (newKey is null)
                     {
                         // No valid key means that the query will be disabled.
-                        UnsubscribeFromCurrentUnifiedQuery();
+                        UnsubscribeFromCurrentSharedQuery();
                         notify = _state.SetValue(QueryState<T>.Disabled, suppressNotification: true);
                     }
                     else
                     {
                         // A valid key means that the query is enabled (but the key may have changed).
-                        // A new key means that we must find a new unified query and synchronize the
-                        // new initial query state to the current state of that unified query.
-                        // Since this query subscribed to the unified query it will receive any
+                        // A new key means that we must find a new shared query and synchronize the
+                        // new initial query state to the current state of that shared query.
+                        // Since this query subscribed to the shared query it will receive any
                         // data updates from now on.
-                        SubscribeToNewUnifiedQuery(newKey);
-                        notify = SyncStateWithUnifiedQuery(_unifiedQuery);
+                        SubscribeToNewSharedQuery(newKey);
+                        notify = SyncStateWithSharedQuery(_sharedQuery);
                     }
                 }
 
@@ -126,39 +127,39 @@ namespace Composed.Query
             }
         }
 
-        [MemberNotNull(nameof(_unifiedQuery))]
-        [MemberNotNull(nameof(_rentUnifiedQuerySubscription))]
-        [MemberNotNull(nameof(_watchUnifiedQuerySubscription))]
-        private QueryState<T> SubscribeToNewUnifiedQuery(QueryKey key)
+        [MemberNotNull(nameof(_sharedQuery))]
+        [MemberNotNull(nameof(_rentSharedQuerySubscription))]
+        [MemberNotNull(nameof(_watchSharedQuerySubscription))]
+        private QueryState<T> SubscribeToNewSharedQuery(QueryKey key)
         {
             // Called from lock.
-            UnsubscribeFromCurrentUnifiedQuery();
+            UnsubscribeFromCurrentSharedQuery();
 
-            var (unifiedQuery, rentUnifiedQuerySubscription) = _client.UnifiedQueryCache.Rent(key, _queryFunction);
-            var watchUnifiedQuerySubscription = UseUnifiedQueryStateChangedHandler(unifiedQuery);
+            var (sharedQuery, rentSharedQuerySubscription) = _client.SharedQueryCache.Rent(key, _queryFunction);
+            var watchSharedQuerySubscription = UseSharedQueryStateChangedHandler(sharedQuery);
 
             // Trigger the refetch before subscribing to the data so that we don't immediately receive
             // an "IsFetching" state change event and instead begin in the "IsFetching" state.
-            unifiedQuery.Refetch();
+            sharedQuery.Refetch();
 
-            _unifiedQuery = unifiedQuery;
-            _rentUnifiedQuerySubscription = rentUnifiedQuerySubscription;
-            _watchUnifiedQuerySubscription = watchUnifiedQuerySubscription;
+            _sharedQuery = sharedQuery;
+            _rentSharedQuerySubscription = rentSharedQuerySubscription;
+            _watchSharedQuerySubscription = watchSharedQuerySubscription;
 
-            return unifiedQuery.QueryState.Value;
+            return sharedQuery.QueryState.Value;
         }
 
-        private void UnsubscribeFromCurrentUnifiedQuery()
+        private void UnsubscribeFromCurrentSharedQuery()
         {
             // Called from lock.
-            _unifiedQuery = null;
-            _watchUnifiedQuerySubscription?.Dispose();
-            _watchUnifiedQuerySubscription = null;
-            _rentUnifiedQuerySubscription?.Dispose();
-            _rentUnifiedQuerySubscription = null;
+            _sharedQuery = null;
+            _watchSharedQuerySubscription?.Dispose();
+            _watchSharedQuerySubscription = null;
+            _rentSharedQuerySubscription?.Dispose();
+            _rentSharedQuerySubscription = null;
         }
 
-        private IDisposable UseUnifiedQueryStateChangedHandler(UnifiedQuery<T> unifiedQuery) =>
+        private IDisposable UseSharedQueryStateChangedHandler(SharedQuery<T> sharedQuery) =>
             Watch(() =>
             {
                 var notify = false;
@@ -167,53 +168,105 @@ namespace Composed.Query
                 {
                     // Due to threading, this handler can be invoked:
                     // - after disposal
-                    // - after a query key change (which would have changed _unifiedQuery).
+                    // - after a query key change (which would have changed _sharedQuery).
                     // In either case, the state shouldn't change then.
-                    if (_unifiedQuery != unifiedQuery || _isDisposed)
+                    if (_sharedQuery != sharedQuery || _isDisposed)
                     {
                         return;
                     }
 
-                    notify = SyncStateWithUnifiedQuery(unifiedQuery);
+                    notify = SyncStateWithSharedQuery(sharedQuery);
                 }
 
                 if (notify)
                 {
                     _state.Notify();
                 }
-            }, unifiedQuery.QueryState);
+            }, sharedQuery.QueryState);
 
         /// <summary>
-        ///     Sets the <see cref="State"/> to the state of the unified query.
-        ///     Disposes the query when the unified query is disposed.
+        ///     Sets the <see cref="State"/> to the state of the shared query.
+        ///     Disposes the query when the shared query is disposed.
         /// </summary>
         /// <returns>
         ///     Whether a state changed notification should be sent.
         /// </returns>
-        private bool SyncStateWithUnifiedQuery(UnifiedQuery<T> unifiedQuery)
+        private bool SyncStateWithSharedQuery(SharedQuery<T> sharedQuery)
         {
             // Called from lock.
 
-            // When the underlying unified query gets disabled it means that it was manually disposed
+            // When the underlying shared query gets disabled it means that it was manually disposed
             // via the query client (auto disposal is not possible with active subscriptions).
             // In such a case, also transitively dispose this query as the query client is unusable.
-            if (unifiedQuery.QueryState.Value.IsDisabled)
+            if (sharedQuery.QueryState.Value.IsDisabled)
             {
                 return DisposeInternal();
             }
 
             return _state.SetValue(
-                unifiedQuery.QueryState.Value,
+                sharedQuery.QueryState.Value,
                 suppressNotification: true
             );
         }
 
         /// <summary>
-        ///     Triggers a refetch of this query (and all other queries sharing the same query key).
+        ///     Triggers a refetch of this query (and all other queries sharing the same query key
+        ///     and query function).
         /// </summary>
-        public void Refetch()
+        /// <returns>
+        ///     <see langword="true"/> if the data could successfully be set;
+        ///     <see langword="false"/> if the data could not be set because the query is currently disabled.
+        /// </returns>
+        public bool Refetch()
         {
-            _unifiedQuery?.Refetch();
+            return _sharedQuery?.Refetch() ?? false;
+        }
+
+        /// <summary>
+        ///     Manually sets the data of this query (and all other queries sharing the same query key
+        ///     and query function) to the specified value.
+        ///     This does <i>not</i> interrupt an ongoing fetching attempt.
+        /// </summary>
+        /// <param name="data">The data to be set.</param>
+        /// <returns>
+        ///     <see langword="true"/> if the data could successfully be set;
+        ///     <see langword="false"/> if the data could not be set because the query is currently disabled.
+        /// </returns>
+        public bool SetData(T data)
+        {
+            return _sharedQuery?.SetData(data) ?? false;
+        }
+
+        /// <summary>
+        ///     Manually sets the error of this query (and all other queries sharing the same query key
+        ///     and query function) to the specified value.
+        ///     This does <i>not</i> interrupt an ongoing fetching attempt.
+        /// </summary>
+        /// <param name="error">The error to be set.</param>
+        /// <returns>
+        ///     <see langword="true"/> if the error could successfully be set;
+        ///     <see langword="false"/> if the error could not be set because the query is currently disabled.
+        /// </returns>
+        /// <exception cref="ArgumentNullException">
+        ///     <paramref name="error"/> is <see langword="null"/>.
+        /// </exception>
+        public bool SetError(Exception error)
+        {
+            _ = error ?? throw new ArgumentNullException(nameof(error));
+            return _sharedQuery?.SetError(error) ?? false;
+        }
+
+        /// <summary>
+        ///     Notifies a <see cref="CancelableQueryFunction{T}"/> that it should cancel fetching data.
+        ///     Calling this function has no effect if the query is not fetching any data at the moment.
+        /// </summary>
+        /// <returns>
+        ///     A <see cref="Task"/> which completes when the query leaves the <see cref="QueryStatus.Fetching"/> status.
+        ///     If the query is not fetching any data at the moment, the task immediately completes.
+        /// </returns>
+        public Task CancelAsync()
+        {
+            return _sharedQuery?.CancelAsync() ?? Task.CompletedTask;
         }
 
         /// <summary>
@@ -245,7 +298,7 @@ namespace Composed.Query
 
             _watchDependenciesSubscription?.Dispose();
             _watchDependenciesSubscription = null;
-            UnsubscribeFromCurrentUnifiedQuery();
+            UnsubscribeFromCurrentSharedQuery();
 
             // Important: Set the state to disabled *after* the disposal flag is set.
             // This prevents subsequent asynchronous state updates from currently executing subscription handlers.
